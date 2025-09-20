@@ -17,6 +17,8 @@ enum GeomType
 
 struct Ray
 {
+   // Ray(glm::vec3 ori, glm::vec3 dir) : origin(ori), direction(dir){}
+
     glm::vec3 origin;
     glm::vec3 direction;
 };
@@ -33,9 +35,18 @@ struct Geom
     glm::mat4 invTranspose;
 };
 
+enum MaterialType {
+    DIFFUSE,
+    SPECULAR,
+    EMISSION,
+    PBR
+};
+
+
 struct Material
 {
     glm::vec3 color;
+    MaterialType materialType;
     struct
     {
         float exponent;

@@ -3,9 +3,7 @@
 #include <cstdio>
 #include <cuda.h>
 #include <cmath>
-#include <thrust/execution_policy.h>
 #include <thrust/random.h>
-#include <thrust/remove.h>
 
 #include "sceneStructs.h"
 #include "scene.h"
@@ -157,6 +155,8 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
     }
 }
 
+const float M_PI = 3.14159265359;
+const float I_PI = 0.31830988618f;
 // TODO:
 // computeIntersections handles generating ray intersections ONLY.
 // Generating new rays is handled in your shader(s).
@@ -174,6 +174,12 @@ __global__ void computeIntersections(
     if (path_index < num_paths)
     {
         PathSegment pathSegment = pathSegments[path_index];
+
+        //todo: compact
+        if (pathSegment.remainingBounces == 0) {
+            return;
+        }
+
 
         float t;
         glm::vec3 intersect_point;
@@ -226,6 +232,157 @@ __global__ void computeIntersections(
     }
 }
 
+__device__ float Sin2Theta(glm::vec3 w) { return std::max<float>(0, 1 - Cos2Theta(w)); }
+__device__ float SinTheta(glm::vec3 w) { return std::sqrt(Sin2Theta(w)); }
+__device__ float CosTheta(glm::vec3 w) { return w.z; }
+__device__ float Cos2Theta(glm::vec3 w) { return glm::pow(w.z,2); }
+__device__ float AbsCosTheta(glm::vec3 w) { return std::abs(w.z); }
+__device__ float tanTheta(glm::vec3 w) { return SinTheta(w) / CosTheta(w); }
+__device__ float tan2Theta(glm::vec3 w) { return Sin2Theta(w) / Cos2Theta(w); }
+__device__ float SafeACos(float x) { return std::acos(glm::clamp(x, -1.f, 1.f)); }
+
+
+
+
+__device__ float CosPhi(glm::vec3 w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 1 : glm::clamp(w.x / sinTheta, -1.f, 1.f);
+}
+__device__ float SinPhi(glm::vec3 w) {
+    float sinTheta = SinTheta(w);
+    return (sinTheta == 0) ? 0 : glm::clamp(w.y / sinTheta, -1.f, 1.f);
+}
+
+__device__ glm::vec3 SphericalDirection(float sinTheta, float cosTheta, float phi) {
+    return glm::vec3(glm::clamp(sinTheta, -1.f, 1.f) * std::cos(phi),
+        glm::clamp(sinTheta, -1.f, 1.f) * std::sin(phi),
+        glm::clamp(cosTheta, -1.f, 1.f));
+}
+
+float CosDPhi(glm::vec3 wa, glm::vec3 wb) {
+    float waxy = glm::pow(wa.x,2) + glm::pow(wa.x, 2), wbxy = glm::pow(wa.x, 2) + glm::pow(wa.x, 2);
+    if (waxy == 0 || wbxy == 0) return 1;
+    return glm::clamp((wa.x * wb.x + wa.y * wb.y) / std::sqrt(waxy * wbxy),
+        -1.f, 1.f);
+}
+
+float CosineHemispherePDF(float cosTheta) {
+    return cosTheta * I_PI;
+}
+
+
+glm::vec3 Reflect(glm::vec3 wo, glm::vec3 n) {
+    return -wo + 2 * glm::dot(wo, n) * n;
+}
+
+
+//needs to be safe?
+float SphericalTheta(glm::vec3 v) { return SafeACos(v.z); }
+
+float SphericalPhi(glm::vec3 v) {
+    float p = std::atan2(v.y, v.x);
+    return (p < 0) ? (p + 2 * M_PI) : p;
+}
+
+__device__ glm::vec3 getLocalPath(glm::vec3 path, glm::vec3 intersectionNormal) {
+    glm::vec3 x = glm::normalize(glm::cross(glm::normalize(intersectionNormal + glm::vec3(1.f, 0, 0)), intersectionNormal));
+    glm::vec3 y = glm::normalize(glm::cross(x, intersectionNormal));
+    return glm::mat3(x, y, intersectionNormal) * path;
+}
+
+__device__ glm::vec3 getGlobalPath(glm::vec3 path, glm::vec3 intersectionNormal) {
+    glm::vec3 x = glm::normalize(glm::cross(glm::normalize(intersectionNormal + glm::vec3(1.f, 0, 0)), intersectionNormal));
+    glm::vec3 y = glm::normalize(glm::cross(x, intersectionNormal));
+    return glm::normalize(glm::mat3(x, y, intersectionNormal)) * path;
+}
+
+
+__global__ void ShadePbr(
+    int iter,
+    int num_paths,
+    ShadeableIntersection* shadeableIntersections,
+    PathSegment* pathSegments,
+    Material* materials,
+    int bounceCount)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < num_paths && pathSegments[idx].remainingBounces > 0)
+    {
+        ShadeableIntersection intersection = shadeableIntersections[idx];
+        if (intersection.t > 0.0f) // if the intersection exists...
+        {
+            // Set up the RNG
+            // LOOK: this is how you use thrust's RNG! Please look at
+            // makeSeededRandomEngine as well.
+            thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, bounceCount);
+            thrust::uniform_real_distribution<float> u01(0, 1);
+
+            Material material = materials[intersection.materialId];
+            glm::vec3 materialColor = material.color;
+
+            // If the material indicates that the object was a light, "light" the ray
+            if (material.emittance > 0.0f) {
+                pathSegments[idx].color *= (materialColor * material.emittance);
+                pathSegments[idx].remainingBounces = 0;
+                return;
+            }
+            else {
+
+                switch (material.materialType) {
+                case DIFFUSE:
+                    //we'll use local coordinate systems following the textbook :) 
+                    glm::vec3 localPath = getLocalPath(pathSegments[idx].ray.direction, intersection.surfaceNormal);
+                    glm::vec3 localNormal(0.f, 0.f, 1.f);
+
+                    glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
+                    //            glm::vec3 trueDirection = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
+
+                    glm::vec3 wi = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
+                    if (wi.z < 0) {
+                        wi *= -1.f;
+                    }
+
+                    float pdf = CosineHemispherePDF(AbsCosTheta(wi));
+
+                    //glm::vec3 wo = pathSegments[idx].ray.direction * -1.f;
+
+                    //float lightTerm = glm::dot(intersection.surfaceNormal, wi);
+                    //pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
+                    //
+                    //glm::vec3 contribution = materialColor * I_PI;
+                    //float pdf = lightTerm * I_PI;
+                    //pathSegments[idx].color *= (contribution * lightTerm / pdf);
+
+                    //pathSegments[idx].color *= u01(rng); // apply some noise because why not
+
+                    pathSegments[idx].ray.direction = wi;
+                    pathSegments[idx].ray.origin = newOrigin;
+
+                    break;
+                default:
+                    break;
+                }
+            }
+            // If there was no intersection, color the ray black.
+            // Lots of renderers use 4 channel color, RGBA, where A = alpha, often
+            // used for opacity, in which case they can indicate "no opacity".
+            // This can be useful for post-processing and image compositing.
+
+            //update bounce
+            pathSegments[idx].remainingBounces--;
+
+            //default uniform bounce
+
+
+        }
+        else {
+            pathSegments[idx].color = glm::vec3(0.0f);
+            pathSegments[idx].remainingBounces = 0;
+        }
+    }
+
+}
+
 // LOOK: "fake" shader demonstrating what you might do with the info in
 // a ShadeableIntersection, as well as how to use thrust's random number
 // generator. Observe that since the thrust random number generator basically
@@ -240,10 +397,12 @@ __global__ void shadeFakeMaterial(
     int num_paths,
     ShadeableIntersection* shadeableIntersections,
     PathSegment* pathSegments,
-    Material* materials)
+    Material* materials,
+    int bounceCount
+    )
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < num_paths)
+    if (idx < num_paths && pathSegments[idx].remainingBounces > 0)
     {
         ShadeableIntersection intersection = shadeableIntersections[idx];
         if (intersection.t > 0.0f) // if the intersection exists...
@@ -251,7 +410,7 @@ __global__ void shadeFakeMaterial(
           // Set up the RNG
           // LOOK: this is how you use thrust's RNG! Please look at
           // makeSeededRandomEngine as well.
-            thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
+            thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, bounceCount);
             thrust::uniform_real_distribution<float> u01(0, 1);
 
             Material material = materials[intersection.materialId];
@@ -260,24 +419,52 @@ __global__ void shadeFakeMaterial(
             // If the material indicates that the object was a light, "light" the ray
             if (material.emittance > 0.0f) {
                 pathSegments[idx].color *= (materialColor * material.emittance);
+                pathSegments[idx].remainingBounces = 0;
+                return;
             }
             // Otherwise, do some pseudo-lighting computation. This is actually more
             // like what you would expect from shading in a rasterizer like OpenGL.
             // TODO: replace this! you should be able to start with basically a one-liner
             else {
-                float lightTerm = glm::dot(intersection.surfaceNormal, glm::vec3(0.0f, 1.0f, 0.0f));
+                glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
+
+
+                //            glm::vec3 trueDirection = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
+                glm::vec3 newDirection = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
+
+                float lightTerm = glm::dot(intersection.surfaceNormal, newDirection);
                 pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
-                pathSegments[idx].color *= u01(rng); // apply some noise because why not
+                
+                glm::vec3 contribution = materialColor * 0.31830988618f;
+                float pdf = lightTerm * 0.31830988618f;
+                //pathSegments[idx].color *= (contribution * lightTerm / pdf);
+
+                //pathSegments[idx].color *= u01(rng); // apply some noise because why not
+
+                pathSegments[idx].ray.direction = newDirection;
+                pathSegments[idx].ray.origin = newOrigin;
             }
             // If there was no intersection, color the ray black.
             // Lots of renderers use 4 channel color, RGBA, where A = alpha, often
             // used for opacity, in which case they can indicate "no opacity".
             // This can be useful for post-processing and image compositing.
+
+            //update bounce
+            pathSegments[idx].remainingBounces--;
+
+            //default uniform bounce
+
+
         }
         else {
             pathSegments[idx].color = glm::vec3(0.0f);
+            pathSegments[idx].remainingBounces = 0;
         }
     }
+}
+
+__host__ __device__ bool pathDone(const PathSegment& p) {
+    return p.remainingBounces == 0;
 }
 
 // Add the current iteration's output to the overall image
@@ -341,7 +528,6 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     //   for you.
 
     // TODO: perform one iteration of path tracing
-
     generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths);
     checkCUDAError("generate camera ray");
 
@@ -352,8 +538,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     // --- PathSegment Tracing Stage ---
     // Shoot ray into scene, bounce between objects, push shading chunks
 
-    bool iterationComplete = false;
-    while (!iterationComplete)
+    while (depth < traceDepth)
     {
         // clean shading chunks
         cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
@@ -386,9 +571,13 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             num_paths,
             dev_intersections,
             dev_paths,
-            dev_materials
+            dev_materials,
+            depth
         );
-        iterationComplete = true; // TODO: should be based off stream compaction results.
+        
+       // thrust::device_vector<PathSegment> thrustPaths(dev_paths);
+       // thrust::remove_if(thrustPaths.begin(), thrustPaths.begin(), )
+
 
         if (guiData != NULL)
         {
