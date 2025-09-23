@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include <driver_types.h>
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
@@ -39,7 +40,9 @@ enum MaterialType {
     DIFFUSE,
     SPECULAR,
     EMISSION,
-    PBR
+    PBR,
+    EMPTY,
+    COUNT
 };
 
 
@@ -92,7 +95,26 @@ struct PathSegment
 // 2) BSDF evaluation: generate a new ray
 struct ShadeableIntersection
 {
-  float t;
-  glm::vec3 surfaceNormal;
-  int materialId;
+    float t;
+    glm::vec3 surfaceNormal;
+    int materialId;
 };
+
+
+struct HasRemainingBounces {
+    __device__ bool operator()(const PathSegment& path) const {
+        return path.remainingBounces > 0;
+    }
+};
+
+struct MaterialEnumExtractor {
+    Material* materials;  // Pointer to your materials device array
+
+    MaterialEnumExtractor(Material* mats) : materials(mats) {}
+
+    __device__ int operator()(const ShadeableIntersection& intersection) const {
+        return intersection.materialId == -1 ? EMPTY : materials[intersection.materialId].materialType; // or whatever your enum field is called
+    }
+};
+
+
