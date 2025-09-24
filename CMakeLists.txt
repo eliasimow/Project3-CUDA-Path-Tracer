@@ -56,11 +56,12 @@
         src/sceneStructs.h
         src/utilities.h
         src/BrdsfHelperService.cuh
+        src/GltfParse.h
+        src/BVHNode.cuh
     )
 
     set(sources
         src/main.cpp
-        src/stb.cpp
         src/image.cpp
         src/glslUtility.cpp
         src/pathtrace.cu
@@ -68,6 +69,9 @@
         src/interactions.cu
         src/scene.cpp
         src/utilities.cpp
+        src/stb.cpp
+        src/GltfParse.cpp
+        src/BVHNode.cu
     )
 
     set(imgui_headers

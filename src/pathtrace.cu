@@ -83,7 +83,8 @@ static ShadeableIntersection* dev_intersections = NULL;
 static int* dev_materialType = NULL;
 static int* dev_materialTypeStart = NULL;
 static int* dev_materialTypeEnd = NULL;
-
+static glm::vec3* dev_vertPos = NULL;
+static int* dev_vertIdx = NULL;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -114,21 +115,26 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
     cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
-    checkCUDAError("pathtraceInit");
+
+    //MATERIAL SORTING:
 
     cudaMalloc(&dev_materialType, pixelcount * sizeof(int));
     cudaMemset(dev_materialType, -1, pixelcount * sizeof(int));
 
-    checkCUDAError("pathtraceInit");
 
     cudaMalloc(&dev_materialTypeStart, COUNT * sizeof(int));
     cudaMemset(dev_materialTypeStart, -1, COUNT * sizeof(int));
 
-    checkCUDAError("pathtraceInit");
 
     cudaMalloc(&dev_materialTypeEnd, COUNT * sizeof(int));
     cudaMemset(dev_materialTypeEnd, -1, COUNT * sizeof(int));
-    // TODO: initialize any extra device memeory you need
+
+    //GLTF:
+    cudaMalloc(&dev_vertPos, scene->vertPos.size() * sizeof(glm::vec3));
+    cudaMemcpy(dev_vertPos, scene->vertPos.data(), scene->vertPos.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&dev_vertIdx, scene->vertIdx.size() * sizeof(int));
+    cudaMemcpy(dev_vertIdx, scene->vertIdx.data(), scene->vertIdx.size() * sizeof(int), cudaMemcpyHostToDevice);
 
     checkCUDAError("pathtraceInit");
 }
@@ -143,6 +149,8 @@ void pathtraceFree()
     cudaFree(dev_materialTypeEnd);
     cudaFree(dev_materialTypeStart);
     cudaFree(dev_materialType);
+    cudaFree(dev_vertIdx);
+    cudaFree(dev_vertPos);
     // TODO: clean up any extra device memory you created
 
     checkCUDAError("pathtraceFree");
@@ -189,6 +197,8 @@ __global__ void computeIntersections(
     PathSegment* pathSegments,
     Geom* geoms,
     int geoms_size,
+    glm::vec3* positions,
+    int* vertIdx,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -228,7 +238,31 @@ __global__ void computeIntersections(
             {
                 t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
             }
-            // TODO: add more intersection tests here... triangle? metaball? CSG?
+            else if (geom.type == MESH)
+            {
+                float t2 = -1;
+                t = FLT_MAX;
+                glm::vec3 tri_temp_intersection;
+                glm::vec3 tri_temp_normal;
+                bool outside;
+
+                for (int i = geom.idxStart; i < geom.idxEnd - 2; i += 3) {
+                    t2 = triangleIntersectionTest(
+                        pathSegment.ray,
+                        vertIdx,
+                        positions,
+                        i,
+                        tri_temp_intersection,
+                        tri_temp_normal,
+                        outside);
+
+                    if (t2 > 0.0f && t > t2) {
+                        t = t2;
+                        tmp_intersect = tri_temp_intersection;
+                        tmp_normal = tri_temp_normal;
+                    }
+                }
+            }
 
             // Compute the minimum t from the intersection tests to determine what
             // scene geometry object was hit first.
@@ -473,6 +507,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             dev_paths,
             dev_geoms,
             hst_scene->geoms.size(),
+            dev_vertPos,
+            dev_vertIdx,
             dev_intersections
         );
         checkCUDAError("trace one bounce");

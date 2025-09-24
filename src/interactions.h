@@ -46,3 +46,14 @@ __host__ __device__ void scatterRay(
     glm::vec3 normal,
     const Material& m,
     thrust::default_random_engine& rng);
+
+
+
+__host__ __device__ float triangleIntersectionTest(
+    Ray r,
+    int* triangleIdx,
+    glm::vec3* positions,
+    int firstIndex,
+    glm::vec3& intersectionPoint,
+    glm::vec3& normal,
+    bool& outside);

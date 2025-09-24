@@ -2,6 +2,7 @@
 
 #include "sceneStructs.h"
 #include <vector>
+#include "GltfParse.h"
 
 class Scene
 {
@@ -12,5 +13,11 @@ public:
 
     std::vector<Geom> geoms;
     std::vector<Material> materials;
+
+    std::vector<int> vertIdx;
+    std::vector<glm::vec3> vertPos;
+
     RenderState state;
+
+    void BufferMesh(std::vector<Mesh> meshes);
 };

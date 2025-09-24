@@ -56,6 +56,59 @@ __host__ __device__ float boxIntersectionTest(
     return -1;
 }
 
+//following:
+//https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
+__host__ __device__ float triangleIntersectionTest(
+    Ray r,
+    int* triangleIdx,
+    glm::vec3* positions,
+    int firstIndex,
+    glm::vec3& intersectionPoint,
+    glm::vec3& normal,
+    bool& outside)
+{
+    glm::vec3 pos1 = positions[triangleIdx[firstIndex]];
+    glm::vec3 pos2 = positions[triangleIdx[firstIndex + 1]];
+    glm::vec3 pos3 = positions[triangleIdx[firstIndex + 2]];
+
+    glm::vec3 edge1 = pos2 - pos1;
+    glm::vec3 edge2 = pos3 - pos1;
+
+    glm::vec3 pVec = glm::cross(r.direction, edge2);
+    float determinate = glm::dot(edge1, pVec);
+
+    if (determinate > -FLT_EPSILON && determinate < FLT_EPSILON) {
+        return -1;
+    }
+
+    float inverseDeterminate = 1.0 / determinate;
+    glm::vec3 tVec = r.origin - pos1;
+
+    float u = glm::dot(tVec, pVec) * inverseDeterminate;
+    if (u < 0 || u > 1.) {
+        //opposite direction, outta here
+        return -1;
+    }
+
+    glm::vec3 qVec = glm::cross(tVec, edge1);
+
+    float v = glm::dot(r.direction, qVec) * inverseDeterminate;
+    if (v < 0 || u + v > 1) {
+        //behind or past;
+        return -1;
+    }
+
+    float t = glm::dot(edge2, qVec) * inverseDeterminate;
+    intersectionPoint = r.origin + r.direction * t;
+
+    //todo: barycentric interpolation. should this happen in material determination? 
+    normal = glm::cross(edge1, edge2);
+    outside = glm::dot(normal, r.direction) < FLT_EPSILON;
+
+    return t;
+}
+
+
 __host__ __device__ float sphereIntersectionTest(
     Geom sphere,
     Ray r,
@@ -111,3 +164,4 @@ __host__ __device__ float sphereIntersectionTest(
 
     return glm::length(r.origin - intersectionPoint);
 }
+

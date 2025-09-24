@@ -23,6 +23,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "GltfParse.h"
 
 static std::string startTimeString;
 
@@ -340,6 +341,7 @@ void mainLoop()
 
 int main(int argc, char** argv)
 {
+    Gltf parser;
     startTimeString = currentTimeString();
 
     if (argc < 2)
@@ -351,7 +353,9 @@ int main(int argc, char** argv)
     const char* sceneFile = argv[1];
 
     // Load scene file
+    std::vector<Mesh> meshes = parser.LoadFromFile("C:/Users/elias/Downloads/simple_low_poly_crown/scene.gltf");
     scene = new Scene(sceneFile);
+    scene->BufferMesh(meshes);
 
     //Create Instance for ImGUIData
     guiData = new GuiDataContainer();

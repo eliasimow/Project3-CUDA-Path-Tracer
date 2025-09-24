@@ -10,6 +10,7 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <tiny_gltf.h>
 
 using namespace std;
 using json = nlohmann::json;
@@ -125,4 +126,48 @@ void Scene::loadFromJSON(const std::string& jsonName)
     int arraylen = camera.resolution.x * camera.resolution.y;
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
+}
+
+void Scene::BufferMesh(std::vector<Mesh> meshes) {
+    for each (Mesh m in meshes)
+    {
+        
+        Material mat;
+        mat.materialType = DIFFUSE;
+        mat.color = glm::vec3(0.9, 0.1, 0.1);
+        materials.push_back(mat);
+
+        //todo: more of these
+        Geom meshGeometry;
+        meshGeometry.transform = glm::mat4();
+        meshGeometry.inverseTransform = glm::mat4();
+        meshGeometry.materialid = materials.size() - 1;
+        meshGeometry.idxStart = vertIdx.size();
+        meshGeometry.type = MESH;
+
+
+
+        for (int i = 0; i < m.positions.size(); ++i) {
+            vertPos.push_back(m.positions[i]);
+        }
+
+        int indexOffset = vertIdx.size();
+        for (int i = 0; i < m.indices.size() - 2; i += 3) {
+            //Triangle t;
+            //t.vertices[0] = m.positions[m.indices[i]];
+            //t.vertices[1] = m.positions[m.indices[i+1]];
+            //t.vertices[2] = m.positions[m.indices[i+2]];
+
+            //t.normals[0] = m.normals[m.indices[i]];
+            //t.normals[1] = m.normals[m.indices[i + 1]];
+            //t.normals[2] = m.normals[m.indices[i + 2]];
+
+            vertIdx.push_back(indexOffset + m.indices[i]);
+            vertIdx.push_back(indexOffset + m.indices[i + 1]);
+            vertIdx.push_back(indexOffset + m.indices[i + 2]);
+        }
+        meshGeometry.idxEnd = vertIdx.size();
+        geoms.push_back(meshGeometry);
+    }
+
 }
