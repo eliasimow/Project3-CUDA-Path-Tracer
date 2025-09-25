@@ -139,8 +139,8 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_triangles, scene->triangles.size() * sizeof(Triangle));
     cudaMemcpy(dev_triangles, scene->triangles.data(), scene->triangles.size() * sizeof(Triangle), cudaMemcpyHostToDevice);
 
-    cudaMalloc(&dev_BVHNodes, scene->bvhNodes.size() * sizeof(BVHNode));
-    cudaMemcpy(dev_BVHNodes, scene->bvhNodes.data(), scene->bvhNodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
+    cudaMalloc(&dev_BVHNodes, scene->bvh->nodes.size() * sizeof(BVHNode));
+    cudaMemcpy(dev_BVHNodes, scene->bvh->nodes.data(), scene->bvh->nodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
 
     checkCUDAError("pathtraceInit");
 }
@@ -234,7 +234,6 @@ __global__ void computeIntersections(
         glm::vec3 tmp_normal;
 
         // naive parse through global geoms
-
         for (int i = 0; i < geoms_size; i++)
         {
             Geom& geom = geoms[i];
@@ -252,35 +251,8 @@ __global__ void computeIntersections(
             else if (geom.type == TRIANGLES)
             {
 
-                t = intersectBVH(pathSegment.ray, FLT_MAX, 0, bvhNodes, triangles, positions, tmp_intersect, tmp_normal, outside);
-
-
-                //float t2 = -1;
-                //t = FLT_MAX;
-                //glm::vec3 tri_temp_intersection;
-                //glm::vec3 tri_temp_normal;
-                //bool outside;
-
-                //for (int i = geom.idxStart; i < geom.idxEnd - 2; i += 3) {
-                //    t2 = triangleIntersectionTest(
-                //        pathSegment.ray,
-                //        vertIdx,
-                //        positions,
-                //        i,
-                //        tri_temp_intersection,
-                //        tri_temp_normal,
-                //        outside);
-
-                //    if (t2 > 0.0f && t > t2) {
-                //        t = t2;
-                //        tmp_intersect = tri_temp_intersection;
-                //        tmp_normal = tri_temp_normal;
-                //    }
-                //}
+                t = intersectBVH(pathSegment.ray, bvhNodes, triangles, positions, tmp_intersect, tmp_normal, outside);
             }
-
-            // Compute the minimum t from the intersection tests to determine what
-            // scene geometry object was hit first.
             if (t > 0.0f && t_min > t)
             {
                 t_min = t;
@@ -367,8 +339,10 @@ __global__ void ShadePbr(
                     //glm::vec3 contribution = materialColor * I_PI;
                     //pathSegments[idx].color *= (contribution * lightTerm / pdf);
 
-                    pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
-                
+                    //pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
+                    pathSegments[idx].color = materialColor;
+                    pathSegments[idx].remainingBounces = 0;
+
                     glm::vec3 contribution = materialColor * 0.31830988618f;
                     float pdf = lightTerm * 0.31830988618f;
                     //pathSegments[idx].color *= (contribution * lightTerm / pdf);

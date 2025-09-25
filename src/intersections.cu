@@ -174,57 +174,52 @@ __host__ __device__ bool intersectAABB(const Ray ray, float t, const glm::vec3 b
     tmin = glm::max(tmin, glm::min(ty1, ty2)), tmax = glm::min(tmax, glm::max(ty1, ty2));
     float tz1 = (bmin.z - ray.origin.z) / ray.direction.z, tz2 = (bmax.z - ray.origin.z) / ray.direction.z;
     tmin = glm::max(tmin, glm::min(tz1, tz2)), tmax = glm::min(tmax, glm::max(tz1, tz2));
-    return tmax >= tmin && tmin < t && tmax > 0;
+    return tmax >= tmin && (tmin < t || t < 0) && tmax > 0;
 }
 
 __host__ __device__ float intersectBVH(
     Ray ray, 
-    float tMaximum, 
-    unsigned int nodeIdx, 
     const BVHNode* __restrict__  nodes,
     const Triangle* __restrict__ triangles,
     const glm::vec3* __restrict__ positions,
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside) {
-    const BVHNode& node = nodes[nodeIdx];
-    float t = tMaximum;
-    if (!intersectAABB(ray, t, node.boxMin, node.boxMax)) return -1;
 
-    float tTest = FLT_MAX;
+    float tTest = -1;
+    float t = -1;
     glm::vec3 intersectionTest;
     glm::vec3 normalTest;
     bool outsideTest;
 
-    if (node.primCount > 0)
-    {
-        for (int i = 0; i < node.primCount; i++) {
-            tTest = triangleIntersectionTest(ray, node.firstIndex + i, triangles, positions, intersectionTest, normalTest, outsideTest);
-            if (tTest > 0 && tTest < t) {
-                t = tTest;
-                intersectionPoint = intersectionTest;
-                normal = normalTest;
-                outside = outsideTest;
-            }
-        }
-    }else
-    {
-        //left
-        tTest = intersectBVH(ray, t, node.left, nodes, triangles, positions, intersectionTest, normalTest, outsideTest);
-        if (tTest > 0 && tTest < t) {
-            t = tTest;
-            intersectionPoint = intersectionTest;
-            normal = normalTest;
-            outside = outsideTest;
-        }
+    int stack[32];
+    int stackIndex = 1;
+    stack[0] = 0;
 
-        //right
-        tTest = intersectBVH(ray, t, node.right, nodes, triangles, positions, intersectionTest, normalTest, outsideTest);
-        if (tTest > 0 && tTest < t) {
-            t = tTest;
-            intersectionPoint = intersectionTest;
-            normal = normalTest;
-            outside = outsideTest;
+    while (stackIndex > 0) {
+        stackIndex--;
+        BVHNode node = nodes[stack[stackIndex]];
+
+        if (!intersectAABB(ray, t, node.boxMin, node.boxMax)) continue;
+
+        if (node.primCount > 0)
+        {
+            for (int i = 0; i < node.primCount; i++) {
+                tTest = triangleIntersectionTest(ray, node.firstIndex + i, triangles, positions, intersectionTest, normalTest, outsideTest);
+                if (tTest > 0 && (tTest < t || t < 0)) {
+                    t = tTest;
+                    intersectionPoint = intersectionTest;
+                    normal = normalTest;
+                    outside = outsideTest;
+                }
+            }
+        }else{
+            if (node.left > 0) {
+                stack[stackIndex++] = node.left;
+            }
+            if (node.right > 0) {
+                stack[stackIndex++] = node.right;
+            }
         }
     }
     return t;

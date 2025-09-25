@@ -130,6 +130,15 @@ struct MaterialEnumExtractor {
 
 struct BVHNode
 {
+    BVHNode() {
+        boxMin = glm::vec3(0, 0, 0);
+        boxMin = glm::vec3(0, 0, 0);
+        left = 0;
+        right = 0;
+        firstIndex = 0;
+        primCount = 0;
+    }
+
     glm::vec3 boxMin, boxMax;
     unsigned int left, right;
     unsigned int firstIndex, primCount;

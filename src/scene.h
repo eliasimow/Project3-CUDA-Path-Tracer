@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "GltfParse.h"
+#include "BVHNode.cuh"
 
 class Scene
 {
@@ -21,9 +22,11 @@ public:
     
     std::vector<glm::vec3> vertPos;
 
-    std::vector<std::unique_ptr<BVHNode>> bvhNodes;
+    std::unique_ptr<BVH> bvh;
 
     RenderState state;
+
+    void BuildBVH();
 
     void BufferMesh(std::vector<Mesh> meshes);
 };

@@ -72,9 +72,8 @@ __host__ __device__ float sphereIntersectionTest(
     glm::vec3& normal,
     bool& outside);
 
-__host__ __device__ float intersectBVH(Ray ray, 
-    float tMaximum, 
-    unsigned int nodeIdx, 
+__host__ __device__ float intersectBVH(
+    Ray ray, 
     const BVHNode* __restrict__  nodes,
     const Triangle* __restrict__ triangles,
     const glm::vec3* __restrict__ positions,

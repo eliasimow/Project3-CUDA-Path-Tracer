@@ -128,6 +128,18 @@ void Scene::loadFromJSON(const std::string& jsonName)
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
 }
 
+void Scene::BuildBVH()
+{
+    bvh = std::make_unique<BVH>(triangles, vertPos);
+    bvh->BuildBVH();
+
+    std::vector<Triangle> reordered(triangles.size());
+    for (size_t i = 0; i < triangles.size(); i++) {
+        reordered[bvh->sortedTriIndices[i]] = triangles[i];
+    }
+    triangles = reordered;
+}
+
 void Scene::BufferMesh(std::vector<Mesh> meshes) {
     for each (Mesh m in meshes)
     {
