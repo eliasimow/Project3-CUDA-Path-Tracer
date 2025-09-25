@@ -14,6 +14,7 @@
 #include "intersections.h"
 #include "interactions.h"
 #include "BrdsfHelperService.cuh"
+#include "BVHNode.cuh"
 
 #define ERRORCHECK 1
 
@@ -84,7 +85,9 @@ static int* dev_materialType = NULL;
 static int* dev_materialTypeStart = NULL;
 static int* dev_materialTypeEnd = NULL;
 static glm::vec3* dev_vertPos = NULL;
-static int* dev_vertIdx = NULL;
+static Triangle* dev_triangles = NULL;
+static BVHNode* dev_BVHNodes = NULL;
+
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -133,8 +136,11 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_vertPos, scene->vertPos.size() * sizeof(glm::vec3));
     cudaMemcpy(dev_vertPos, scene->vertPos.data(), scene->vertPos.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
-    cudaMalloc(&dev_vertIdx, scene->vertIdx.size() * sizeof(int));
-    cudaMemcpy(dev_vertIdx, scene->vertIdx.data(), scene->vertIdx.size() * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMalloc(&dev_triangles, scene->triangles.size() * sizeof(Triangle));
+    cudaMemcpy(dev_triangles, scene->triangles.data(), scene->triangles.size() * sizeof(Triangle), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&dev_BVHNodes, scene->bvhNodes.size() * sizeof(BVHNode));
+    cudaMemcpy(dev_BVHNodes, scene->bvhNodes.data(), scene->bvhNodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
 
     checkCUDAError("pathtraceInit");
 }
@@ -149,8 +155,9 @@ void pathtraceFree()
     cudaFree(dev_materialTypeEnd);
     cudaFree(dev_materialTypeStart);
     cudaFree(dev_materialType);
-    cudaFree(dev_vertIdx);
+    cudaFree(dev_triangles);
     cudaFree(dev_vertPos);
+    cudaFree(dev_BVHNodes);
     // TODO: clean up any extra device memory you created
 
     checkCUDAError("pathtraceFree");
@@ -187,6 +194,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
     }
 }
 
+
 // TODO:
 // computeIntersections handles generating ray intersections ONLY.
 // Generating new rays is handled in your shader(s).
@@ -196,9 +204,10 @@ __global__ void computeIntersections(
     int num_paths,
     PathSegment* pathSegments,
     Geom* geoms,
+    BVHNode* bvhNodes,
+    Triangle* triangles,
     int geoms_size,
     glm::vec3* positions,
-    int* vertIdx,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -229,7 +238,9 @@ __global__ void computeIntersections(
         for (int i = 0; i < geoms_size; i++)
         {
             Geom& geom = geoms[i];
-
+            volatile int type = geom.type;
+            type++;
+            type--;
             if (geom.type == CUBE)
             {
                 t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
@@ -238,30 +249,34 @@ __global__ void computeIntersections(
             {
                 t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
             }
-            else if (geom.type == MESH)
+            else if (geom.type == TRIANGLES)
             {
-                float t2 = -1;
-                t = FLT_MAX;
-                glm::vec3 tri_temp_intersection;
-                glm::vec3 tri_temp_normal;
-                bool outside;
 
-                for (int i = geom.idxStart; i < geom.idxEnd - 2; i += 3) {
-                    t2 = triangleIntersectionTest(
-                        pathSegment.ray,
-                        vertIdx,
-                        positions,
-                        i,
-                        tri_temp_intersection,
-                        tri_temp_normal,
-                        outside);
+                t = intersectBVH(pathSegment.ray, FLT_MAX, 0, bvhNodes, triangles, positions, tmp_intersect, tmp_normal, outside);
 
-                    if (t2 > 0.0f && t > t2) {
-                        t = t2;
-                        tmp_intersect = tri_temp_intersection;
-                        tmp_normal = tri_temp_normal;
-                    }
-                }
+
+                //float t2 = -1;
+                //t = FLT_MAX;
+                //glm::vec3 tri_temp_intersection;
+                //glm::vec3 tri_temp_normal;
+                //bool outside;
+
+                //for (int i = geom.idxStart; i < geom.idxEnd - 2; i += 3) {
+                //    t2 = triangleIntersectionTest(
+                //        pathSegment.ray,
+                //        vertIdx,
+                //        positions,
+                //        i,
+                //        tri_temp_intersection,
+                //        tri_temp_normal,
+                //        outside);
+
+                //    if (t2 > 0.0f && t > t2) {
+                //        t = t2;
+                //        tmp_intersect = tri_temp_intersection;
+                //        tmp_normal = tri_temp_normal;
+                //    }
+                //}
             }
 
             // Compute the minimum t from the intersection tests to determine what
@@ -506,9 +521,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             num_paths,
             dev_paths,
             dev_geoms,
+            dev_BVHNodes,
+            dev_triangles,
             hst_scene->geoms.size(),
             dev_vertPos,
-            dev_vertIdx,
             dev_intersections
         );
         checkCUDAError("trace one bounce");

@@ -60,16 +60,17 @@ __host__ __device__ float boxIntersectionTest(
 //https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
 __host__ __device__ float triangleIntersectionTest(
     Ray r,
-    int* triangleIdx,
-    glm::vec3* positions,
-    int firstIndex,
+    int triangleIdx,
+    const Triangle* __restrict__ triangles,
+    const glm::vec3* __restrict__ positions,
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside)
 {
-    glm::vec3 pos1 = positions[triangleIdx[firstIndex]];
-    glm::vec3 pos2 = positions[triangleIdx[firstIndex + 1]];
-    glm::vec3 pos3 = positions[triangleIdx[firstIndex + 2]];
+    Triangle tri = triangles[triangleIdx];
+    glm::vec3 pos1 = positions[tri.vertIndices[0]];
+    glm::vec3 pos2 = positions[tri.vertIndices[1]];
+    glm::vec3 pos3 = positions[tri.vertIndices[2]];
 
     glm::vec3 edge1 = pos2 - pos1;
     glm::vec3 edge2 = pos3 - pos1;
@@ -144,12 +145,12 @@ __host__ __device__ float sphereIntersectionTest(
     }
     else if (t1 > 0 && t2 > 0)
     {
-        t = min(t1, t2);
+        t = glm::min(t1, t2);
         outside = true;
     }
     else
     {
-        t = max(t1, t2);
+        t = glm::max(t1, t2);
         outside = false;
     }
 
@@ -164,4 +165,69 @@ __host__ __device__ float sphereIntersectionTest(
 
     return glm::length(r.origin - intersectionPoint);
 }
+
+__host__ __device__ bool intersectAABB(const Ray ray, float t, const glm::vec3 bmin, const glm::vec3 bmax)
+{
+    float tx1 = (bmin.x - ray.origin.x) / ray.direction.x, tx2 = (bmax.x - ray.origin.x) / ray.direction.x;
+    float tmin = glm::min(tx1, tx2), tmax = glm::max(tx1, tx2);
+    float ty1 = (bmin.y - ray.origin.y) / ray.direction.y, ty2 = (bmax.y - ray.origin.y) / ray.direction.y;
+    tmin = glm::max(tmin, glm::min(ty1, ty2)), tmax = glm::min(tmax, glm::max(ty1, ty2));
+    float tz1 = (bmin.z - ray.origin.z) / ray.direction.z, tz2 = (bmax.z - ray.origin.z) / ray.direction.z;
+    tmin = glm::max(tmin, glm::min(tz1, tz2)), tmax = glm::min(tmax, glm::max(tz1, tz2));
+    return tmax >= tmin && tmin < t && tmax > 0;
+}
+
+__host__ __device__ float intersectBVH(
+    Ray ray, 
+    float tMaximum, 
+    unsigned int nodeIdx, 
+    const BVHNode* __restrict__  nodes,
+    const Triangle* __restrict__ triangles,
+    const glm::vec3* __restrict__ positions,
+    glm::vec3& intersectionPoint,
+    glm::vec3& normal,
+    bool& outside) {
+    const BVHNode& node = nodes[nodeIdx];
+    float t = tMaximum;
+    if (!intersectAABB(ray, t, node.boxMin, node.boxMax)) return -1;
+
+    float tTest = FLT_MAX;
+    glm::vec3 intersectionTest;
+    glm::vec3 normalTest;
+    bool outsideTest;
+
+    if (node.primCount > 0)
+    {
+        for (int i = 0; i < node.primCount; i++) {
+            tTest = triangleIntersectionTest(ray, node.firstIndex + i, triangles, positions, intersectionTest, normalTest, outsideTest);
+            if (tTest > 0 && tTest < t) {
+                t = tTest;
+                intersectionPoint = intersectionTest;
+                normal = normalTest;
+                outside = outsideTest;
+            }
+        }
+    }else
+    {
+        //left
+        tTest = intersectBVH(ray, t, node.left, nodes, triangles, positions, intersectionTest, normalTest, outsideTest);
+        if (tTest > 0 && tTest < t) {
+            t = tTest;
+            intersectionPoint = intersectionTest;
+            normal = normalTest;
+            outside = outsideTest;
+        }
+
+        //right
+        tTest = intersectBVH(ray, t, node.right, nodes, triangles, positions, intersectionTest, normalTest, outsideTest);
+        if (tTest > 0 && tTest < t) {
+            t = tTest;
+            intersectionPoint = intersectionTest;
+            normal = normalTest;
+            outside = outsideTest;
+        }
+    }
+    return t;
+}
+
 

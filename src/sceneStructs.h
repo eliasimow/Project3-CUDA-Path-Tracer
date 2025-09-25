@@ -14,7 +14,7 @@ enum GeomType
 {
     SPHERE,
     CUBE,
-    TRIANGLE,
+    TRIANGLES,
     MESH
 };
 
@@ -36,14 +36,15 @@ struct Geom
     glm::mat4 transform;
     glm::mat4 inverseTransform;
     glm::mat4 invTranspose;
-    int idxStart = -1;
-    int idxEnd = -1;
+    //int idxStart = -1;
+   // int idxEnd = -1;
 };
 
 struct Triangle
 {
-    glm::vec3 centroid;
-    int indices[3];
+   // glm::vec3 centroid;
+    int vertIndices[3];
+   // int indexIndex;
 };
 
 enum MaterialType {
@@ -124,6 +125,14 @@ struct MaterialEnumExtractor {
     __device__ int operator()(const ShadeableIntersection& intersection) const {
         return intersection.materialId == -1 ? EMPTY : materials[intersection.materialId].materialType; // or whatever your enum field is called
     }
+};
+
+
+struct BVHNode
+{
+    glm::vec3 boxMin, boxMax;
+    unsigned int left, right;
+    unsigned int firstIndex, primCount;
 };
 
 

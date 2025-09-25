@@ -142,32 +142,22 @@ void Scene::BufferMesh(std::vector<Mesh> meshes) {
         meshGeometry.transform = glm::mat4();
         meshGeometry.inverseTransform = glm::mat4();
         meshGeometry.materialid = materials.size() - 1;
-        meshGeometry.idxStart = vertIdx.size();
         meshGeometry.type = MESH;
 
-
+        int indexOffset = vertPos.size();
 
         for (int i = 0; i < m.positions.size(); ++i) {
             vertPos.push_back(m.positions[i]);
         }
 
-        int indexOffset = vertIdx.size();
         for (int i = 0; i < m.indices.size() - 2; i += 3) {
-            //Triangle t;
-            //t.vertices[0] = m.positions[m.indices[i]];
-            //t.vertices[1] = m.positions[m.indices[i+1]];
-            //t.vertices[2] = m.positions[m.indices[i+2]];
-
-            //t.normals[0] = m.normals[m.indices[i]];
-            //t.normals[1] = m.normals[m.indices[i + 1]];
-            //t.normals[2] = m.normals[m.indices[i + 2]];
-
-            vertIdx.push_back(indexOffset + m.indices[i]);
-            vertIdx.push_back(indexOffset + m.indices[i + 1]);
-            vertIdx.push_back(indexOffset + m.indices[i + 2]);
+            Triangle t;
+            t.vertIndices[0] = indexOffset + m.indices[i];
+            t.vertIndices[1] = indexOffset + m.indices[i+1];
+            t.vertIndices[2] = indexOffset + m.indices[i+2];
+            triangles.push_back(t);
         }
-        meshGeometry.idxEnd = vertIdx.size();
-        geoms.push_back(meshGeometry);
+        //geoms.push_back(meshGeometry);
     }
 
 }

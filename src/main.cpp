@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include "GltfParse.h"
+#include "BVHNode.cuh"
 
 static std::string startTimeString;
 
@@ -335,6 +336,8 @@ void mainLoop()
     glfwTerminate();
 }
 
+
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -356,6 +359,16 @@ int main(int argc, char** argv)
     std::vector<Mesh> meshes = parser.LoadFromFile("C:/Users/elias/Downloads/simple_low_poly_crown/scene.gltf");
     scene = new Scene(sceneFile);
     scene->BufferMesh(meshes);
+
+    BVH bvh(*scene);
+    bvh.BuildBVH();
+
+    std::vector<Triangle> reordered(scene->triangles.size());
+    for (size_t i = 0; i < scene->triangles.size(); i++) {
+        reordered[bvh.sortedTriIndices[i]] = scene->triangles[i];
+    }
+    scene->triangles = reordered;
+    scene->bvhNodes = std::move(bvh.nodes);
 
     //Create Instance for ImGUIData
     guiData = new GuiDataContainer();

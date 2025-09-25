@@ -2,6 +2,8 @@
 
 #include "sceneStructs.h"
 #include <vector>
+#include <memory>
+
 #include "GltfParse.h"
 
 class Scene
@@ -14,8 +16,12 @@ public:
     std::vector<Geom> geoms;
     std::vector<Material> materials;
 
-    std::vector<int> vertIdx;
+    //std::vector<unsigned int> vertIdx;
+    std::vector<Triangle> triangles;
+    
     std::vector<glm::vec3> vertPos;
+
+    std::vector<std::unique_ptr<BVHNode>> bvhNodes;
 
     RenderState state;
 
