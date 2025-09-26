@@ -126,6 +126,24 @@ void Scene::loadFromJSON(const std::string& jsonName)
     int arraylen = camera.resolution.x * camera.resolution.y;
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
+
+
+    //find environment map
+    if (data.contains("EnvironmentMap")) {
+
+        const auto& environmentData = data["EnvironmentMap"];
+
+        int width, height, channels;
+        std::string path = environmentData["PATH"];
+        // stbi_loadf always returns float* (32-bit float per channel)
+        float* imgData = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
+
+        if (!imgData) {
+            printf("Failed to load image %s: %s\n", path, stbi_failure_reason());
+            return -1;
+        }
+    }
+
 }
 
 void Scene::BuildBVH()
@@ -135,7 +153,7 @@ void Scene::BuildBVH()
 
     std::vector<Triangle> reordered(triangles.size());
     for (size_t i = 0; i < triangles.size(); i++) {
-        reordered[bvh->sortedTriIndices[i]] = triangles[i];
+        reordered[i] = triangles[bvh->sortedTriIndices[i]];
     }
     triangles = reordered;
 }

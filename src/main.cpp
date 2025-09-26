@@ -355,16 +355,39 @@ int main(int argc, char** argv)
     const char* sceneFile = argv[1];
 
     // Load scene file
-    std::vector<Mesh> meshes = parser.LoadFromFile("C:/Users/elias/Downloads/simple_low_poly_crown/scene.gltf");
+    //"C:/Users/elias/Downloads/simple_low_poly_crown/scene.gltf"
+    //"C:/Users/elias/Downloads/low_poly_mccree/scene.gltf"
+    //"C:/Users/elias/Downloads/cube/scene.gltf"
+        //"C:/Users/elias/Downloads/astronaut/scene.gltf"
+
+    std::vector<Mesh> meshes = parser.LoadFromFile("C:/Users/elias/Downloads/free_zuk_3d_model/scene.gltf");
     scene = new Scene(sceneFile);
     scene->BufferMesh(meshes);
     scene->BuildBVH();
+
+    //std::vector<glm::vec3> positions = scene->vertPos;
+    //std::vector<Triangle> triangles = scene->triangles;
+    //for (int nodeIdx = 0; nodeIdx < scene->bvh->nodes.size(); ++nodeIdx) {
+    //    if (scene->bvh->nodes[nodeIdx].primCount == 0) continue;
+
+    //    for (int x = 0; x < 3; ++x) {
+    //        //std::printf("\n LEFT everything should be between min %f and max %f\n", scene->bvh->nodes[nodeIdx].boxMin[x], nodes[nodes[nodeIdx].left].boxMax[x]);
+    //        for (int left = scene->bvh->nodes[nodeIdx].firstIndex; left < scene->bvh->nodes[nodeIdx].firstIndex + scene->bvh->nodes[nodeIdx].primCount; ++left) {
+    //            bool goneWrong = positions[triangles[left].vertIndices[0]][x] < scene->bvh->nodes[nodeIdx].boxMin[x] || positions[triangles[left].vertIndices[0]][x] > scene->bvh->nodes[nodeIdx].boxMax[x];
+    //                goneWrong = goneWrong || positions[triangles[left].vertIndices[1]][x] < scene->bvh->nodes[nodeIdx].boxMin[x] || positions[triangles[left].vertIndices[1]][x] > scene->bvh->nodes[nodeIdx].boxMax[x];
+    //                goneWrong = goneWrong || positions[triangles[left].vertIndices[2]][x] < scene->bvh->nodes[nodeIdx].boxMin[x] || positions[triangles[left].vertIndices[2]][x] > scene->bvh->nodes[nodeIdx].boxMax[x];
+
+    //            if (goneWrong) {
+    //                std::printf("gone wrong!");
+    //            }
+    //        }
+    //    }
+    //}
 
     Geom meshGeom;
     meshGeom.type = TRIANGLES;
     meshGeom.materialid = 0;
     scene->geoms.push_back(meshGeom);
-
     //Create Instance for ImGUIData
     guiData = new GuiDataContainer();
 

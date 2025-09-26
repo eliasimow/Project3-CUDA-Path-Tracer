@@ -22,6 +22,8 @@ public:
     
     std::vector<glm::vec3> vertPos;
 
+    std::vector<glm::vec4> environmentMap;
+
     std::unique_ptr<BVH> bvh;
 
     RenderState state;

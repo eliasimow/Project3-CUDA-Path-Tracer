@@ -18,17 +18,18 @@ void BVH::BuildBVH()
     nodes.push_back(BVHNode());
     nodes[0].primCount = triCount;
 
-    UpdateBounds(nodes[0]);
+    UpdateBounds(0);
     Subdivide(0);
 }
 
-void BVH::UpdateBounds(BVHNode& node) {
+void BVH::UpdateBounds(int nodeIdx) {
+    BVHNode& node = nodes[nodeIdx];
     node.boxMin = glm::vec3(1e30f);
     node.boxMax = glm::vec3(-1e30f);
     for (unsigned int first = node.firstIndex, i = 0; i < node.primCount; i++)
     {
         int triIndex = sortedTriIndices[first + i];
-        Triangle leafTri = triangles[triIndex];
+        Triangle &leafTri = triangles[triIndex];
 
         node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[0]]);
         node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[1]]);
@@ -41,7 +42,7 @@ void BVH::UpdateBounds(BVHNode& node) {
 }
 
 void BVH::Subdivide(int nodeIdx) {
-    glm::vec3 diag = nodes[nodeIdx].boxMax - nodes[nodeIdx].boxMin;
+    glm::vec3 diag = (nodes[nodeIdx].boxMax - nodes[nodeIdx].boxMin);
     int axis = 0;
     if (diag.y > diag.x) axis = 1;
     if (diag.z > diag[axis]) axis = 2;
@@ -53,7 +54,7 @@ void BVH::Subdivide(int nodeIdx) {
         int triIndex = sortedTriIndices[i];
         Triangle t = triangles[triIndex];
         glm::vec3 centroid = (positions[t.vertIndices[0]] + positions[t.vertIndices[1]] + positions[t.vertIndices[2]]) * 0.3333f;
-        if (centroid[axis] < split) {
+        if (centroid[axis] <= split) {
             i++;
         }
         else {
@@ -61,8 +62,9 @@ void BVH::Subdivide(int nodeIdx) {
             j--;
         }
     }
-
+    
     int leftCount = i - nodes[nodeIdx].firstIndex;
+
     //no division occured
     if (leftCount == 0 || leftCount == nodes[nodeIdx].primCount) return;
 
@@ -82,9 +84,8 @@ void BVH::Subdivide(int nodeIdx) {
 
     nodes[nodeIdx].primCount = 0;
 
-    UpdateBounds(nodes[nodes[nodeIdx].left]);
-    UpdateBounds(nodes[nodes[nodeIdx].right]);
-
+    UpdateBounds(nodes[nodeIdx].left);
+    UpdateBounds(nodes[nodeIdx].right);
 
     if (nodes[nodes[nodeIdx].left].primCount > 1) {
         Subdivide(nodes[nodeIdx].left);

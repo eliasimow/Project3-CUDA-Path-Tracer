@@ -339,10 +339,8 @@ __global__ void ShadePbr(
                     //glm::vec3 contribution = materialColor * I_PI;
                     //pathSegments[idx].color *= (contribution * lightTerm / pdf);
 
-                    //pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
-                    pathSegments[idx].color = materialColor;
-                    pathSegments[idx].remainingBounces = 0;
-
+                    pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
+                
                     glm::vec3 contribution = materialColor * 0.31830988618f;
                     float pdf = lightTerm * 0.31830988618f;
                     //pathSegments[idx].color *= (contribution * lightTerm / pdf);

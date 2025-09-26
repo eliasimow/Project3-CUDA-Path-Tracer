@@ -140,8 +140,8 @@ struct BVHNode
     }
 
     glm::vec3 boxMin, boxMax;
-    unsigned int left, right;
-    unsigned int firstIndex, primCount;
+    unsigned int left = 0, right = 0;
+    unsigned int firstIndex = 0, primCount = 0;
 };
 
 

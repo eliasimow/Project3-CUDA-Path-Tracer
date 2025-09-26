@@ -160,7 +160,7 @@ __host__ __device__ float sphereIntersectionTest(
     normal = glm::normalize(multiplyMV(sphere.invTranspose, glm::vec4(objspaceIntersection, 0.f)));
     if (!outside)
     {
-        normal = -normal;
+    //    normal = -normal;
     }
 
     return glm::length(r.origin - intersectionPoint);
@@ -199,13 +199,20 @@ __host__ __device__ float intersectBVH(
     while (stackIndex > 0) {
         stackIndex--;
         BVHNode node = nodes[stack[stackIndex]];
+        
+        bool boxIntersect = intersectAABB(ray, t, node.boxMin, node.boxMax);
 
-        if (!intersectAABB(ray, t, node.boxMin, node.boxMax)) continue;
+        if (!boxIntersect) continue;
 
         if (node.primCount > 0)
         {
             for (int i = 0; i < node.primCount; i++) {
                 tTest = triangleIntersectionTest(ray, node.firstIndex + i, triangles, positions, intersectionTest, normalTest, outsideTest);
+
+                if (tTest > 0 && !boxIntersect) {
+                    return -10;
+                }
+
                 if (tTest > 0 && (tTest < t || t < 0)) {
                     t = tTest;
                     intersectionPoint = intersectionTest;
@@ -214,12 +221,8 @@ __host__ __device__ float intersectBVH(
                 }
             }
         }else{
-            if (node.left > 0) {
-                stack[stackIndex++] = node.left;
-            }
-            if (node.right > 0) {
-                stack[stackIndex++] = node.right;
-            }
+            stack[stackIndex++] = node.left;
+            stack[stackIndex++] = node.right;
         }
     }
     return t;
