@@ -3,6 +3,7 @@
 #include "utilities.h"
 
 #include <thrust/random.h>
+#include "BrdsfHelperService.cuh"
 
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(
     glm::vec3 normal,

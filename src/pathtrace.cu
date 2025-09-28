@@ -87,7 +87,8 @@ static int* dev_materialTypeEnd = NULL;
 static glm::vec3* dev_vertPos = NULL;
 static Triangle* dev_triangles = NULL;
 static BVHNode* dev_BVHNodes = NULL;
-
+static cudaArray_t dev_environmentMap = NULL;
+cudaTextureObject_t dev_EnvironmentTexture;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -143,6 +144,29 @@ void pathtraceInit(Scene* scene)
     cudaMemcpy(dev_BVHNodes, scene->bvh->nodes.data(), scene->bvh->nodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
 
     checkCUDAError("pathtraceInit");
+
+    //environment map:
+    if (scene->environmentTexture.size() > 0) {
+        cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float4>();
+        cudaMallocArray(&dev_environmentMap, &channelDesc, scene->environmentWidth, scene->environmentHeight);
+        cudaMemcpy2DToArray(dev_environmentMap, 0, 0, scene->environmentTexture.data(), scene->environmentWidth * sizeof(float4), scene->environmentWidth * sizeof(float4), scene->environmentHeight, cudaMemcpyHostToDevice);
+
+        cudaResourceDesc resDesc = {};
+        resDesc.resType = cudaResourceTypeArray;
+        resDesc.res.array.array = dev_environmentMap;
+
+        cudaTextureDesc texDesc = {};
+        texDesc.addressMode[0] = cudaAddressModeWrap;   // U - wrap so u=0..1 wraps
+        texDesc.addressMode[1] = cudaAddressModeClamp;  // V - clamp or clamp_to_edge to avoid seam at poles
+        texDesc.filterMode = cudaFilterModeLinear;      // linear filtering
+        texDesc.readMode = cudaReadModeElementType;     // return float4
+        texDesc.normalizedCoords = 1;                   // coordinates are normalized [0,1]
+
+        dev_EnvironmentTexture = 0;
+        cudaCreateTextureObject(&dev_EnvironmentTexture, &resDesc, &texDesc, nullptr);
+    }
+
+    checkCUDAError("pathtraceInit");
 }
 
 void pathtraceFree()
@@ -158,8 +182,16 @@ void pathtraceFree()
     cudaFree(dev_triangles);
     cudaFree(dev_vertPos);
     cudaFree(dev_BVHNodes);
-    // TODO: clean up any extra device memory you created
 
+    checkCUDAError("pathtraceFree");
+
+    cudaDestroyTextureObject(dev_EnvironmentTexture);
+
+    checkCUDAError("pathtraceFree");
+
+    if(dev_environmentMap != nullptr)
+        cudaFreeArray(dev_environmentMap);
+    
     checkCUDAError("pathtraceFree");
 }
 
@@ -221,8 +253,7 @@ __global__ void computeIntersections(
             intersections[path_index].materialId = -1;
             return;
         }
-
-
+       
         float t;
         glm::vec3 intersect_point;
         glm::vec3 normal;
@@ -288,7 +319,7 @@ __global__ void ShadePbr(
     int bounceCount)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < num_paths && pathSegments[idx].remainingBounces > 0)
+    if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
     {
         ShadeableIntersection intersection = shadeableIntersections[idx];
         if (intersection.t > 0.0f) // if the intersection exists...
@@ -309,9 +340,12 @@ __global__ void ShadePbr(
                 return;
             }
             else {
+                if (pathSegments[idx].remainingBounces == 0) {
+                    pathSegments[idx].color = glm::vec3(0, 0, 0);
+                    return;
+                   }
 
-                switch (material.materialType) {
-                case DIFFUSE:
+
                     //we'll use local coordinate systems following the textbook :) 
                    glm::vec3 localPath = getLocalPath(pathSegments[idx].ray.direction, intersection.surfaceNormal);
                    glm::vec3 localNormal(0.f, 0.f, 1.f);
@@ -324,40 +358,27 @@ __global__ void ShadePbr(
                         wi *= -1.f;
                     }
 
-                    if (glm::distance(pathSegments[idx].ray.direction, getGlobalPath(localPath, intersection.surfaceNormal)) > 0.00001f) {
-                        pathSegments[idx].color = glm::vec3(0, 0, 1);
-                        pathSegments[idx].remainingBounces = 0;
-                        return;
-                    }
+                    //if (glm::distance(pathSegments[idx].ray.direction, getGlobalPath(localPath, intersection.surfaceNormal)) > 0.00001f) {
+                    //    pathSegments[idx].color = glm::vec3(0, 0, 1);
+                    //    pathSegments[idx].remainingBounces = 0;
+                    //    return;
+                    //}
 
                     //float pdf = CosineHemispherePDF(AbsCosTheta(wi));
 
-                    glm::vec3 wo = pathSegments[idx].ray.direction * -1.f;
-
-                    float lightTerm = glm::dot(localNormal, wi);
-                    
-                    //glm::vec3 contribution = materialColor * I_PI;
-                    //pathSegments[idx].color *= (contribution * lightTerm / pdf);
-
+                    float lightTerm = glm::dot(localNormal, wi);                  
                     pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
-                
-                    glm::vec3 contribution = materialColor * 0.31830988618f;
-                    float pdf = lightTerm * 0.31830988618f;
-                    //pathSegments[idx].color *= (contribution * lightTerm / pdf);
-
-                    pathSegments[idx].color *= u01(rng); // apply some noise because why not
-
-                    pathSegments[idx].ray.direction = getGlobalPath(wi, intersection.surfaceNormal);
+               
+                    pathSegments[idx].ray.direction = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
                     pathSegments[idx].ray.origin = newOrigin;
 
                     if (glm::dot(pathSegments[idx].ray.direction, intersection.surfaceNormal) < 0) {
                         pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
                     }
 
-                    break;
-                default:
-                    break;
-                }
+        //           pathSegments[idx].color = intersection.surfaceNormal;
+    //                pathSegments[idx].ray.direction = glm::vec3(0, -1, 0);
+                   // pathSegments[idx].ray.origin += glm::vec3(100, 0, 0);
             }
             // If there was no intersection, color the ray black.
             // Lots of renderers use 4 channel color, RGBA, where A = alpha, often
@@ -365,15 +386,33 @@ __global__ void ShadePbr(
             // This can be useful for post-processing and image compositing.
 
             //update bounce
+
             pathSegments[idx].remainingBounces--;
             //default uniform bounce
         }
         else {
-            pathSegments[idx].color = glm::vec3(0.0f);
+            //pathSegments[idx].color = glm::vec3(0.0f);
             pathSegments[idx].remainingBounces = 0;
         }
     }
+}
 
+__global__ void ShadeEnvironment(
+    int num_paths,
+    PathSegment* pathSegments,
+    int depth,
+    cudaTextureObject_t environmentTexture)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0){
+        if (depth == 1) {
+            pathSegments[idx].color = sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
+        }
+        else {
+            pathSegments[idx].color = pathSegments[idx].color *.8f;
+        }
+        pathSegments[idx].remainingBounces = 0;
+    }
 }
 
 __global__ void materialIdentifyCellStartEnd(int N, int* materials,
@@ -490,7 +529,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         dim3 numblocksPathSegmentTracing = (alivePaths + blockSize1d - 1) / blockSize1d;
         computeIntersections<<<numblocksPathSegmentTracing, blockSize1d>>> (
             depth,
-            num_paths,
+            alivePaths,
             dev_paths,
             dev_geoms,
             dev_BVHNodes,
@@ -526,7 +565,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
         materialIdentifyCellStartEnd << < numblocksPathSegmentTracing, blockSize1d >> >
             (
-                num_paths,
+                alivePaths,
                 dev_materialType,
                 dev_materialTypeStart,
                 dev_materialTypeEnd
@@ -540,32 +579,62 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         cudaMemcpy(host_end_indices.data(), dev_materialTypeEnd,
             COUNT * sizeof(int), cudaMemcpyDeviceToHost);
 
+        //for (int i = 0; i < COUNT; ++i) {
+        //    std::printf("\n%d : %d, %d", i, host_start_indices[i], host_end_indices[i]);
+        //}
+
         for (int i = 0; i < COUNT; ++i) {
             MaterialType materialType = MaterialType(i);
             int start = host_start_indices[i];
             int end = host_end_indices[i];
+            int count = end - start;
+
+            numblocksPathSegmentTracing = (count + blockSize1d - 1) / blockSize1d;
 
             if (start >= 0) {
+                //std::printf("\nthis is %d start %d end %d", i, start, end);
+
                 switch (materialType)
                 {
                 case DIFFUSE:
                     ShadePbr << <numblocksPathSegmentTracing, blockSize1d >> > (
                         iter,
-                        num_paths,
+                        count,
                         dev_intersections + start,
                         dev_paths + start,
                         dev_materials,
                         depth
                         );
+
+                    checkCUDAError("post pbr write");
+
                     break;
                 case SPECULAR:
                     break;
                 case EMISSION:
+
+                    ShadePbr << <numblocksPathSegmentTracing, blockSize1d >> > (
+                        iter,
+                        count,
+                        dev_intersections + start,
+                        dev_paths + start,
+                        dev_materials,
+                        depth
+                        );
+
                     break;
                 case PBR:
                     break;
-                case EMPTY:
-                    //reached end of count, so if there are any we can remove the count
+                case ENVIRONMENT:
+                    ShadeEnvironment << <numblocksPathSegmentTracing, blockSize1d >> > (
+                        count,
+                        dev_paths + start,
+                        depth,
+                        dev_EnvironmentTexture
+                    );
+
+                    checkCUDAError("post env write");
+
                     if (start >= 0) {
                         alivePaths = start;
                     }
@@ -575,6 +644,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
                 }
             }
         }
+
+        checkCUDAError("post material write");
 
 
         if (guiData != NULL)

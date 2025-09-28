@@ -3,10 +3,13 @@
 #include <cuda_runtime.h>
 
 #include "glm/glm.hpp"
+#include <glm/gtc/quaternion.hpp> 
 
 #include <string>
 #include <vector>
 #include <driver_types.h>
+#include <optional>
+
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
@@ -52,7 +55,7 @@ enum MaterialType {
     SPECULAR,
     EMISSION,
     PBR,
-    EMPTY,
+    ENVIRONMENT,
     COUNT
 };
 
@@ -123,7 +126,7 @@ struct MaterialEnumExtractor {
     MaterialEnumExtractor(Material* mats) : materials(mats) {}
 
     __device__ int operator()(const ShadeableIntersection& intersection) const {
-        return intersection.materialId == -1 ? EMPTY : materials[intersection.materialId].materialType; // or whatever your enum field is called
+        return intersection.materialId == -1 ? ENVIRONMENT : materials[intersection.materialId].materialType; // or whatever your enum field is called
     }
 };
 
@@ -145,3 +148,68 @@ struct BVHNode
 };
 
 
+//ANIMATION WOO!:
+
+struct Keyframe {
+    float time;
+    glm::vec3 translation;
+    glm::quat rot;
+    glm::vec3 scale;
+};
+
+struct AnimationChannel {
+    int targetNode;               // index into nodes[]
+    std::string targetPath;       // "translation" | "rotation" | "scale"
+    std::vector<float> times;     // keyframe times
+    std::vector<glm::vec4> values;// could be vec3 or quat, stored as vec4 for generality
+    std::string interpolation;    // LINEAR / STEP / CUBICSPLINE
+};
+
+struct Animation {
+    std::string name;
+    std::vector<AnimationChannel> channels;
+};
+
+struct Skin {
+    std::vector<int> joints;        // node indices of joints
+    std::vector<glm::mat4> inverseBindMatrices;
+    int skeletonRoot = -1;          // optional
+};
+
+struct Node {
+    glm::mat4 localMatrix;
+    glm::vec3 translation;
+    glm::quat rotation;
+    glm::vec3 scale;
+    std::vector<int> children;
+    int parent = -1;
+};
+
+struct MeshSkinning {
+    std::vector<glm::uvec4> jointIndices; // JOINTS_0
+    std::vector<glm::vec4> weights;       // WEIGHTS_0
+};
+
+
+struct MaterialInfo {
+    std::string name;
+    std::optional<std::string> baseColorTexture; // path/uri if available
+    glm::vec4 baseColorFactor = glm::vec4(1.0f);
+    float metallicFactor = 1.0f;
+    float roughnessFactor = 1.0f;
+};
+
+struct Mesh {
+    std::string name;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texcoords0;
+    std::vector<uint32_t> indices;
+    std::optional<MaterialInfo> material;
+};
+
+
+struct FullGltfData {
+    std::vector<Mesh> meshes;
+    std::vector<Skin> skins;
+};

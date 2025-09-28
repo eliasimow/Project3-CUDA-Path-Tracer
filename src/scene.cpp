@@ -127,23 +127,23 @@ void Scene::loadFromJSON(const std::string& jsonName)
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
 
+    Gltf parser;
+    //"C:\Users\elias\Downloads\animated_dance_teacher_-_bellydance.zip"
+    FullGltfData gltfData = parser.LoadFromFile("C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf");
+    BufferMesh(gltfData.meshes);
+    BuildBVH();
+
+    Geom meshGeom;
+    meshGeom.type = TRIANGLES;
+    meshGeom.materialid = 1;
+    geoms.push_back(meshGeom);
 
     //find environment map
     if (data.contains("EnvironmentMap")) {
-
         const auto& environmentData = data["EnvironmentMap"];
-
-        int width, height, channels;
         std::string path = environmentData["PATH"];
-        // stbi_loadf always returns float* (32-bit float per channel)
-        float* imgData = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
-
-        if (!imgData) {
-            printf("Failed to load image %s: %s\n", path, stbi_failure_reason());
-            return -1;
-        }
+        parseTextureFromPath(path, environmentWidth, environmentHeight, environmentTexture);
     }
-
 }
 
 void Scene::BuildBVH()
@@ -159,13 +159,12 @@ void Scene::BuildBVH()
 }
 
 void Scene::BufferMesh(std::vector<Mesh> meshes) {
-    for each (Mesh m in meshes)
-    {
+    for each (Mesh m in meshes){
         
-        Material mat;
-        mat.materialType = DIFFUSE;
-        mat.color = glm::vec3(0.9, 0.1, 0.1);
-        materials.push_back(mat);
+        //Material mat;
+        //mat.materialType = DIFFUSE;
+        //mat.color = glm::vec3(0.9, 0.1, 0.1);
+        //materials.push_back(mat);
 
         //todo: more of these
         Geom meshGeometry;
@@ -187,7 +186,5 @@ void Scene::BufferMesh(std::vector<Mesh> meshes) {
             t.vertIndices[2] = indexOffset + m.indices[i+2];
             triangles.push_back(t);
         }
-        //geoms.push_back(meshGeometry);
     }
-
 }

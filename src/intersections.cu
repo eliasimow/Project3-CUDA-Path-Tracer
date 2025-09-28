@@ -103,7 +103,7 @@ __host__ __device__ float triangleIntersectionTest(
     intersectionPoint = r.origin + r.direction * t;
 
     //todo: barycentric interpolation. should this happen in material determination? 
-    normal = glm::cross(edge1, edge2);
+    normal = glm::normalize(glm::cross(edge1, edge2));
     outside = glm::dot(normal, r.direction) < FLT_EPSILON;
 
     return t;
@@ -226,6 +226,21 @@ __host__ __device__ float intersectBVH(
         }
     }
     return t;
+}
+
+ __device__ float2 dirToUV(const glm::vec3& d) {
+    float theta = acosf(fminf(fmaxf(d.y, -1.0f), 1.0f));
+    float phi = atan2f(d.z, d.x);
+    float u = (phi / (2.0f * M_PI)) + 0.5f;
+    float v = theta / M_PI;
+
+    return make_float2(u, v);
+}
+
+ __device__ glm::vec3 sampleEnvRadiance(cudaTextureObject_t envTex, const glm::vec3& dir) {
+    float2 uv = dirToUV(dir);
+    float4 col = tex2D<float4>(envTex, uv.x, uv.y);
+    return glm::vec3(col.x, col.y, col.z);
 }
 
 

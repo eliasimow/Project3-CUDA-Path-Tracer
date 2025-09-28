@@ -4,7 +4,9 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/intersect.hpp>
-
+#include "BrdsfHelperService.cuh"
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
@@ -80,3 +82,6 @@ __host__ __device__ float intersectBVH(
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside);
+
+ __device__ float2 dirToUV(const glm::vec3& d);
+ __device__ glm::vec3 sampleEnvRadiance(cudaTextureObject_t envTex, const glm::vec3& dir);

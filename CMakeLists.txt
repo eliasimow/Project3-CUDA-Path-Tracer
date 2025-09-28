@@ -56,7 +56,7 @@
         src/sceneStructs.h
         src/utilities.h
         src/BrdsfHelperService.cuh
-        src/GltfParse.h
+        src/gltf/GltfParse.h
         src/BVHNode.cuh
     )
 
@@ -69,8 +69,8 @@
         src/interactions.cu
         src/scene.cpp
         src/utilities.cpp
+        src/gltf/GltfParse.cpp
         src/stb.cpp
-        src/GltfParse.cpp
         src/BVHNode.cu
     )
 

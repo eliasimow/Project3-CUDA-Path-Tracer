@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 
-#include "GltfParse.h"
+#include "gltf/GltfParse.h"
 #include "BVHNode.cuh"
 
 class Scene
@@ -22,7 +22,10 @@ public:
     
     std::vector<glm::vec3> vertPos;
 
-    std::vector<glm::vec4> environmentMap;
+    std::vector<glm::vec4> environmentTexture;
+    int environmentWidth = 0;
+    int environmentHeight = 0;
+
 
     std::unique_ptr<BVH> bvh;
 

@@ -30,30 +30,30 @@
     "ITERATIONS": 5000,
     "DEPTH": 8,
     "FILE": "cornell",
-    "EYE": [ 0.0, 5.0, 10.5 ],
+    "EYE": [ 0.0, 50.0, 200.5 ],
     "LOOKAT": [ 0.0, 5.0, 0.0 ],
     "UP": [ 0.0, 1, 0.0 ]
   },
   "EnvironmentMap": {
-    "PATH": "TEST",
+    "PATH": "C:\\Users\\elias\\Downloads\\qwantani_moon_noon_puresky_4k.hdr",
     "EMITTANCE": 55.0
-   },
+  },
 
     "Objects":
     [
       {
         "TYPE": "cube",
         "MATERIAL": "light",
-        "TRANS": [ 0.0, 8.0, 0.0 ],
+        "TRANS": [ 0.0, -10.0, 0.0 ],
         "ROTAT": [ 0.0, 0.0, 0.0 ],
-        "SCALE": [ 3.0, 0.3, 3.0 ]
+        "SCALE": [ 30.0, 0.3, 30.0 ]
       },
       {
         "TYPE": "cube",
         "MATERIAL": "light2",
-        "TRANS": [ 0.0, -5.0, 0.0 ],
+        "TRANS": [ 0.0, -250.0, 0.0 ],
         "ROTAT": [ 0.0, 0.0, 0.0 ],
-        "SCALE": [ 3.0, 0.3, 3.0 ]
+        "SCALE": [ 30.0, 0.3, 30.0 ]
       }
     ]
 }
