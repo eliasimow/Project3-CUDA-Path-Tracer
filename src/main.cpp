@@ -472,10 +472,17 @@ void runCuda()
     }
     else
     {
-        saveImage();
-        pathtraceFree();
-        cudaDeviceReset();
-        exit(EXIT_SUCCESS);
+        scene->IterateFrame();
+        if (scene->currentFrame >= scene->totalFrames) {
+            saveImage();
+            pathtraceFree();
+            cudaDeviceReset();
+            exit(EXIT_SUCCESS);
+        }
+        else {
+            //jobs not done bud
+            iteration = 0;
+        }
     }
 }
 

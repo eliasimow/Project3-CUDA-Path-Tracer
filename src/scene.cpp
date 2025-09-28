@@ -129,7 +129,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
 
     Gltf parser;
     //"C:\Users\elias\Downloads\animated_dance_teacher_-_bellydance.zip"
-    FullGltfData gltfData = parser.LoadFromFile("C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf");
+    FullGltfData gltfData = parser.LoadFromFile("C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/sceneTest.gltf");
     BufferMesh(gltfData.meshes);
     BuildBVH();
 
@@ -137,6 +137,11 @@ void Scene::loadFromJSON(const std::string& jsonName)
     meshGeom.type = TRIANGLES;
     meshGeom.materialid = 1;
     geoms.push_back(meshGeom);
+
+
+    currentFrame = 0;
+    totalFrames = fps * gltfData.animationTime + 1.;
+
 
     //find environment map
     if (data.contains("EnvironmentMap")) {
@@ -187,4 +192,9 @@ void Scene::BufferMesh(std::vector<Mesh> meshes) {
             triangles.push_back(t);
         }
     }
+}
+
+void Scene::IterateFrame()
+{
+    currentFrame++;
 }

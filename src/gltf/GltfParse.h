@@ -3,7 +3,7 @@
 #include <vector>
 #include <optional>
 #include <glm/glm.hpp>
-#include "sceneStructs.h"
+#include "../sceneStructs.h"
 
 
 class Gltf {

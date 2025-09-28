@@ -25,6 +25,11 @@ public:
     std::vector<glm::vec4> environmentTexture;
     int environmentWidth = 0;
     int environmentHeight = 0;
+    
+    int currentFrame;
+    int totalFrames;
+
+    static const int fps = 24;
 
 
     std::unique_ptr<BVH> bvh;
@@ -34,4 +39,7 @@ public:
     void BuildBVH();
 
     void BufferMesh(std::vector<Mesh> meshes);
+
+    void IterateFrame();
+
 };

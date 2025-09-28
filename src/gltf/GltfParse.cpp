@@ -82,7 +82,7 @@ namespace {
     }
 }
 
-std::vector<FullGltfData> Gltf::LoadFromFile(const std::string& path) {
+FullGltfData Gltf::LoadFromFile(const std::string& path) {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
     std::string err, warn;
@@ -103,7 +103,7 @@ std::vector<FullGltfData> Gltf::LoadFromFile(const std::string& path) {
     }
     if (!ret) {
         std::cerr << "Failed to load glTF: " << path << "\n";
-        return {};
+        return FullGltfData();
     }
 
     //skins:
@@ -234,16 +234,14 @@ std::vector<FullGltfData> Gltf::LoadFromFile(const std::string& path) {
                 }
             }
 
-            MeshSkinning skin;
-
-            auto itJ = prim.attributes.find("JOINTS_0");
-            auto itW = prim.attributes.find("WEIGHTS_0");
-
-            if (itJ != prim.attributes.end()) {
-                skin.jointIndices = ReadAccessor<glm::uvec4>(model, itJ->second);
+            auto joints = prim.attributes.find("JOINTS_0");
+            if (joints != prim.attributes.end()) {
+                mymesh.jointIndices = ReadAccessor<glm::uvec4>(model, joints->second);
             }
-            if (itW != prim.attributes.end()) {
-                skin.weights = ReadAccessor<glm::vec4>(model, itW->second);
+
+            auto weights = prim.attributes.find("WEIGHTS_0");
+            if (weights != prim.attributes.end()) {
+                mymesh.weights = ReadAccessor<glm::vec4>(model, weights->second);
             }
 
             // Indices
@@ -257,8 +255,20 @@ std::vector<FullGltfData> Gltf::LoadFromFile(const std::string& path) {
             outMeshes.push_back(std::move(mymesh));
         }
     }
-    return FullGltfData();
-   // return outMeshes;
+
+    float animationTime = 0.f;
+    if (animations.size() > 0) {
+        for each (Animation anim in animations) {
+            for each (AnimationChannel channel in anim.channels) {
+                //good lord
+                for each (float time in channel.times) {
+                    animationTime = glm::max(animationTime, time);
+                }
+            }
+        }
+    }
+
+    return FullGltfData(outMeshes, skins, nodes, animations, animationTime);
 }
 
 void parseTextureFromPath(const std::string& path, int &width, int&height, std::vector<glm::vec4> &texture)

@@ -185,15 +185,9 @@ struct Node {
     int parent = -1;
 };
 
-struct MeshSkinning {
-    std::vector<glm::uvec4> jointIndices; // JOINTS_0
-    std::vector<glm::vec4> weights;       // WEIGHTS_0
-};
-
-
 struct MaterialInfo {
     std::string name;
-    std::optional<std::string> baseColorTexture; // path/uri if available
+    std::optional<std::string> baseColorTexture;
     glm::vec4 baseColorFactor = glm::vec4(1.0f);
     float metallicFactor = 1.0f;
     float roughnessFactor = 1.0f;
@@ -205,11 +199,34 @@ struct Mesh {
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texcoords0;
     std::vector<uint32_t> indices;
+    std::vector<glm::uvec4> jointIndices;
+    std::vector<glm::vec4>  weights;
     std::optional<MaterialInfo> material;
 };
+
 
 
 struct FullGltfData {
     std::vector<Mesh> meshes;
     std::vector<Skin> skins;
+    std::vector<Node> nodes;
+    std::vector<Animation> animations;
+    std::vector<glm::uvec4> jointIndices;
+    std::vector<glm::vec4> weights;
+    float animationTime; 
+
+
+    FullGltfData() {}
+
+    FullGltfData(std::vector<Mesh> meshes,
+        std::vector<Skin> skins,
+        std::vector<Node> nodes,
+        std::vector<Animation> animations,
+        float animationTime = 0.f)
+        : meshes(std::move(meshes)),
+        skins(std::move(skins)),
+        nodes(std::move(nodes)),
+        animations(std::move(animations)), 
+        animationTime(animationTime) 
+    {}
 };
