@@ -307,7 +307,7 @@ void mainLoop()
 
         runCuda();
 
-        std::string title = "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations";
+        std::string title = "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations, FRAME: " + utilityCore::convertIntToString(scene->currentFrame) + "/" + utilityCore::convertIntToString(scene->totalFrames);
         glfwSetWindowTitle(window, title.c_str());
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
         glBindTexture(GL_TEXTURE_2D, displayImage);
@@ -359,6 +359,11 @@ int main(int argc, char** argv)
         //"C:/Users/elias/Downloads/astronaut/scene.gltf"
 
     scene = new Scene(sceneFile);
+    if (scene->totalFrames > 0) {
+        //initialize:
+        scene->IterateFrame();
+    }
+
 
     //Create Instance for ImGUIData
     guiData = new GuiDataContainer();
@@ -473,14 +478,15 @@ void runCuda()
     else
     {
         scene->IterateFrame();
-        if (scene->currentFrame >= scene->totalFrames) {
-            saveImage();
+        if (scene->currentFrame > scene->totalFrames) {
+            //saveImage();
             pathtraceFree();
             cudaDeviceReset();
             exit(EXIT_SUCCESS);
         }
         else {
             //jobs not done bud
+            rewritePositions(scene);
             iteration = 0;
         }
     }

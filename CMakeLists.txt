@@ -58,6 +58,7 @@
         src/BrdsfHelperService.cuh
         src/gltf/GltfParse.h
         src/BVHNode.cuh
+        src/AnimationParser.h
     )
 
     set(sources
@@ -72,6 +73,7 @@
         src/gltf/GltfParse.cpp
         src/stb.cpp
         src/BVHNode.cu
+        src/AnimationParser.cpp
     )
 
     set(imgui_headers

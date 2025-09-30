@@ -26,13 +26,15 @@ public:
     int environmentWidth = 0;
     int environmentHeight = 0;
     
-    int currentFrame;
+    int currentFrame = -1;
     int totalFrames;
 
     static const int fps = 24;
 
 
     std::unique_ptr<BVH> bvh;
+
+    FullGltfData gltfData;
 
     RenderState state;
 
@@ -42,4 +44,5 @@ public:
 
     void IterateFrame();
 
+    
 };

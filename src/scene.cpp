@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 #include <tiny_gltf.h>
+#include "AnimationParser.h"
 
 using namespace std;
 using json = nlohmann::json;
@@ -129,7 +130,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
 
     Gltf parser;
     //"C:\Users\elias\Downloads\animated_dance_teacher_-_bellydance.zip"
-    FullGltfData gltfData = parser.LoadFromFile("C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/sceneTest.gltf");
+    gltfData = parser.LoadFromFile("C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf");
     BufferMesh(gltfData.meshes);
     BuildBVH();
 
@@ -139,7 +140,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
     geoms.push_back(meshGeom);
 
 
-    currentFrame = 0;
+    currentFrame = -1;
     totalFrames = fps * gltfData.animationTime + 1.;
 
 
@@ -179,7 +180,7 @@ void Scene::BufferMesh(std::vector<Mesh> meshes) {
         meshGeometry.type = MESH;
 
         int indexOffset = vertPos.size();
-
+        m.vertexOffset = indexOffset;
         for (int i = 0; i < m.positions.size(); ++i) {
             vertPos.push_back(m.positions[i]);
         }
@@ -197,4 +198,30 @@ void Scene::BufferMesh(std::vector<Mesh> meshes) {
 void Scene::IterateFrame()
 {
     currentFrame++;
+    float currentTime = currentFrame / (float) fps;
+    
+    if (currentFrame > totalFrames) {
+        return;
+    }
+
+    AnimationParser animator;
+
+    animator.UpdateLocalMatrices(*this, currentTime);
+
+    for(int i = 0; i < gltfData.nodes.size(); ++i){
+        Node node = gltfData.nodes[i];
+        if (node.parent < 0) {
+                animator.UpdateGlobalMatrices(*this, i);
+        }
+    }
+
+    for each (Mesh mesh in gltfData.meshes) {
+        animator.UpdateVertexPositions(*this, mesh);
+        for (int i = 0; i < mesh.positions.size(); ++i) {
+            vertPos[i + mesh.vertexOffset] = mesh.positions[i];
+        }
+    }
+
+    //now rebuild bvh
+    BuildBVH();
 }

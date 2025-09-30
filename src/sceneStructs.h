@@ -9,6 +9,7 @@
 #include <vector>
 #include <driver_types.h>
 #include <optional>
+#include <unordered_map>
 
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
@@ -157,12 +158,36 @@ struct Keyframe {
     glm::vec3 scale;
 };
 
+
+enum InterpolationType {
+    ROTATIONLINEAR,
+    LINEAR,
+    STEP,
+    SPLINE
+};
+
+enum TransformType {
+    POSITION,
+    SCALE,
+    ROTATION
+};
+
+struct MaterialInfo {
+    std::string name;
+    std::optional<std::string> baseColorTexture;
+    glm::vec4 baseColorFactor = glm::vec4(1.0f);
+    float metallicFactor = 1.0f;
+    float roughnessFactor = 1.0f;
+};
+
+
 struct AnimationChannel {
-    int targetNode;               // index into nodes[]
-    std::string targetPath;       // "translation" | "rotation" | "scale"
-    std::vector<float> times;     // keyframe times
-    std::vector<glm::vec4> values;// could be vec3 or quat, stored as vec4 for generality
-    std::string interpolation;    // LINEAR / STEP / CUBICSPLINE
+    int targetNode;
+    std::vector<float> times;
+    std::vector<glm::vec4> values;
+    InterpolationType interpolationType;
+    TransformType path;
+
 };
 
 struct Animation {
@@ -177,7 +202,8 @@ struct Skin {
 };
 
 struct Node {
-    glm::mat4 localMatrix;
+    glm::mat4 localMatrix = glm::mat4(1.0f);
+    glm::mat4 globalMatrix = glm::mat4(1.0f);
     glm::vec3 translation;
     glm::quat rotation;
     glm::vec3 scale;
@@ -185,48 +211,41 @@ struct Node {
     int parent = -1;
 };
 
-struct MaterialInfo {
-    std::string name;
-    std::optional<std::string> baseColorTexture;
-    glm::vec4 baseColorFactor = glm::vec4(1.0f);
-    float metallicFactor = 1.0f;
-    float roughnessFactor = 1.0f;
-};
-
 struct Mesh {
     std::string name;
     std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> bindVertPos;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texcoords0;
     std::vector<uint32_t> indices;
     std::vector<glm::uvec4> jointIndices;
     std::vector<glm::vec4>  weights;
-    std::optional<MaterialInfo> material;
+    int vertexOffset;
+    //std::optional<MaterialInfo> material;
+    Skin skin;
 };
 
 
 
 struct FullGltfData {
     std::vector<Mesh> meshes;
-    std::vector<Skin> skins;
-    std::vector<Node> nodes;
+    std::unordered_map<int, Node> nodes;
     std::vector<Animation> animations;
-    std::vector<glm::uvec4> jointIndices;
-    std::vector<glm::vec4> weights;
     float animationTime; 
-
 
     FullGltfData() {}
 
     FullGltfData(std::vector<Mesh> meshes,
-        std::vector<Skin> skins,
-        std::vector<Node> nodes,
+        std::vector<Node> iNodes,
         std::vector<Animation> animations,
         float animationTime = 0.f)
         : meshes(std::move(meshes)),
-        skins(std::move(skins)),
-        nodes(std::move(nodes)),
         animations(std::move(animations)), 
         animationTime(animationTime) 
-    {}
+    {
+    
+        for (int i = 0; i < iNodes.size(); ++i) {
+            nodes[i] = iNodes[i];
+        } 
+    }
 };

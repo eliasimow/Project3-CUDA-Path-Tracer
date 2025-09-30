@@ -209,10 +209,6 @@ __host__ __device__ float intersectBVH(
             for (int i = 0; i < node.primCount; i++) {
                 tTest = triangleIntersectionTest(ray, node.firstIndex + i, triangles, positions, intersectionTest, normalTest, outsideTest);
 
-                if (tTest > 0 && !boxIntersect) {
-                    return -10;
-                }
-
                 if (tTest > 0 && (tTest < t || t < 0)) {
                     t = tTest;
                     intersectionPoint = intersectionTest;

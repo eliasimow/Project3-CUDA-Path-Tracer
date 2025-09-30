@@ -120,12 +120,18 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
         skins.push_back(s);
     }
 
+    std::unordered_map<int, int> meshIdToSkinId;
+
     //nodes:
     std::vector<Node> nodes(model.nodes.size());
     for (int i = 0; i < model.nodes.size(); ++i) {
         const auto& glNode = model.nodes[i];
-        Node n;
 
+        if (glNode.skin >= 0 && glNode.mesh >= 0) {
+            meshIdToSkinId[glNode.mesh] = glNode.skin;
+        }
+
+        Node n;
         n.translation = glNode.translation.size() == 3 ?
             glm::vec3(glNode.translation[0], glNode.translation[1], glNode.translation[2]) :
             glm::vec3(0.0f);
@@ -172,8 +178,18 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 
             AnimationChannel channel;
             channel.targetNode = ch.target_node;
-            channel.targetPath = ch.target_path;
-            channel.interpolation = sampler.interpolation;
+            
+            auto it = transformTypeMap.find(ch.target_path);
+            channel.path = it != transformTypeMap.end() ? it->second : POSITION;
+
+                
+            auto interpolationSearch = interpolationTypeMap.find(sampler.interpolation);
+            channel.interpolationType = interpolationSearch != interpolationTypeMap.end() ? interpolationSearch->second : LINEAR;
+
+            if (channel.interpolationType == LINEAR && channel.path == ROTATION) {
+                channel.interpolationType = ROTATIONLINEAR;
+            }
+
 
             // Keyframe times
             channel.times = ReadAccessor<float>(model, sampler.input);
@@ -196,6 +212,7 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
     }
 
     std::vector<Mesh> outMeshes;
+    int vertexCount = 0;
     for (const auto& mesh : model.meshes) {
         for (const auto& prim : mesh.primitives) {
             Mesh mymesh;
@@ -207,8 +224,11 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
                 std::vector<glm::vec3> pos = ReadAccessor<glm::vec3>(model, prim.attributes.at("POSITION"));
                 size_t numElems = acc.count;
                 mymesh.positions.resize(numElems);
+                mymesh.bindVertPos.resize(numElems);
+
                 for (size_t i = 0; i < numElems; ++i) {
                     mymesh.positions[i] = pos[i];
+                    mymesh.bindVertPos[i] = pos[i];
                 }
             }
 
@@ -234,9 +254,36 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
                 }
             }
 
-            auto joints = prim.attributes.find("JOINTS_0");
-            if (joints != prim.attributes.end()) {
-                mymesh.jointIndices = ReadAccessor<glm::uvec4>(model, joints->second);
+            //this feels really unsafe
+            if (meshIdToSkinId.find(outMeshes.size()) != meshIdToSkinId.end()) {
+                mymesh.skin = skins[meshIdToSkinId[outMeshes.size()]];
+            }
+
+            auto it = prim.attributes.find("JOINTS_0");
+            if (it != prim.attributes.end()) {
+                const tinygltf::Accessor& accessor = model.accessors[it->second];
+                const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+                const tinygltf::Buffer& buffer = model.buffers[view.buffer];
+
+                size_t offset = accessor.byteOffset + view.byteOffset;
+                const unsigned char* dataPtr = buffer.data.data() + offset;
+
+                for (size_t i = 0; i < accessor.count; ++i) {
+                    glm::uvec4 joint;
+                    if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+                        const uint8_t* ptr = reinterpret_cast<const uint8_t*>(dataPtr + i * view.byteStride);
+                        joint = glm::uvec4(ptr[0], ptr[1], ptr[2], ptr[3]);
+                    }
+                    else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+                        const uint16_t* ptr = reinterpret_cast<const uint16_t*>(dataPtr + i * view.byteStride);
+                        joint = glm::uvec4(ptr[0], ptr[1], ptr[2], ptr[3]);
+                    }
+                    else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+                        const uint32_t* ptr = reinterpret_cast<const uint32_t*>(dataPtr + i * view.byteStride);
+                        joint = glm::uvec4(ptr[0], ptr[1], ptr[2], ptr[3]);
+                    }
+                    mymesh.jointIndices.push_back(joint);
+                }
             }
 
             auto weights = prim.attributes.find("WEIGHTS_0");
@@ -252,9 +299,16 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
             //    mymesh.material = materials[prim.material];
             //}
 
+            mymesh.vertexOffset = vertexCount;
+            vertexCount += mymesh.positions.size();
+
             outMeshes.push_back(std::move(mymesh));
         }
     }
+
+    //when we have multiple meshes, we'll need to return to this and consider the index offsets. or maybe keep them separate. idk
+    
+
 
     float animationTime = 0.f;
     if (animations.size() > 0) {
@@ -268,7 +322,7 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
         }
     }
 
-    return FullGltfData(outMeshes, skins, nodes, animations, animationTime);
+    return FullGltfData(outMeshes, nodes, animations, animationTime);
 }
 
 void parseTextureFromPath(const std::string& path, int &width, int&height, std::vector<glm::vec4> &texture)

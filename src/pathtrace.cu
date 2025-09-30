@@ -669,3 +669,16 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
     checkCUDAError("pathtrace");
 }
+
+void rewritePositions(Scene* scene)
+{
+    //have to resend bvh and positions. i think just that for now:
+    cudaMemcpy(dev_vertPos, scene->vertPos.data(), scene->vertPos.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
+    checkCUDAError("copy animation verts");
+
+    cudaMalloc(&dev_BVHNodes, scene->bvh->nodes.size() * sizeof(BVHNode));
+    cudaMemcpy(dev_BVHNodes, scene->bvh->nodes.data(), scene->bvh->nodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
+
+    checkCUDAError("copy animation bvh");
+}
