@@ -99,11 +99,16 @@ __host__ __device__ float triangleIntersectionTest(
         return -1;
     }
 
+    float w = 1. - u - v;
+
     float t = glm::dot(edge2, qVec) * inverseDeterminate;
     intersectionPoint = r.origin + r.direction * t;
 
-    //todo: barycentric interpolation. should this happen in material determination? 
-    normal = glm::normalize(glm::cross(edge1, edge2));
+    glm::vec3 n1 = vertexData[tri.vertIndices[0]].normal;
+    glm::vec3 n2 = vertexData[tri.vertIndices[1]].normal;
+    glm::vec3 n3 = vertexData[tri.vertIndices[2]].normal;
+    normal = glm::normalize(w * n1 + u * n2 + v * n3);
+
     outside = glm::dot(normal, r.direction) < FLT_EPSILON;
 
     return t;

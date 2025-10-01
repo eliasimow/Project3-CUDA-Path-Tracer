@@ -396,7 +396,7 @@ __global__ void ShadePbr(
                         pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
                     }
 
-        //           pathSegments[idx].color = intersection.surfaceNormal;
+                   pathSegments[idx].color = intersection.surfaceNormal;
     //                pathSegments[idx].ray.direction = glm::vec3(0, -1, 0);
                    // pathSegments[idx].ray.origin += glm::vec3(100, 0, 0);
             }

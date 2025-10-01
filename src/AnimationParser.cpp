@@ -143,14 +143,15 @@ void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 		glm::vec4 weights = mesh.weights[i];
 		Skin skin = mesh.skin;
 	
-		for (int i = 0; i < 4; ++i) {
-			int jointIndex = joints[i];
-			float weight = weights[i];
+		for (int j = 0; j < 4; ++j) {
+			int jointIndex = joints[j];
+			float weight = weights[j];
 			if (weight > 0.0f) {
 				glm::mat4 jointMatrix = scene.gltfData.nodes[skin.joints[jointIndex]].globalMatrix;
 				glm::mat4 skinMatrix = jointMatrix * skin.inverseBindMatrices[jointIndex];
 				newPos += weight * (skinMatrix * glm::vec4(bindPos, 1.0f));
-				newNorm += weight * (skinMatrix * glm::vec4(bindNorm, 1.0f));
+				glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(skinMatrix)));
+				newNorm += weight * glm::vec4(normalMatrix * bindNorm, 0.0f);
 			}
 		}
 	

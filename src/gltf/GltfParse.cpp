@@ -232,8 +232,11 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
                 std::vector<glm::vec3> norms = ReadAccessor<glm::vec3>(model, prim.attributes.at("NORMAL"));
                 size_t numElems = acc.count;
                 mymesh.normals.resize(numElems);
+                mymesh.bindNormals.resize(numElems);
+
                 for (size_t i = 0; i < numElems; ++i) {
                     mymesh.normals[i] = norms[i];
+                    mymesh.bindNormals[i] = norms[i];
                 }
             }
 
