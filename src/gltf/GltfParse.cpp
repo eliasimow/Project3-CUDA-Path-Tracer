@@ -147,17 +147,11 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
         n.children = glNode.children;
 
         // If node.matrix is set, override TRS
-        if (glNode.matrix.size() == 16) {
-            glm::mat4 m;
-            memcpy(&m[0][0], glNode.matrix.data(), sizeof(float) * 16);
-            n.localMatrix = m;
-        }
-        else {
-            glm::mat4 T = glm::translate(glm::mat4(1.0f), n.translation);
-            glm::mat4 R = glm::mat4_cast(n.rotation);
-            glm::mat4 S = glm::scale(glm::mat4(1.0f), n.scale);
-            n.localMatrix = T * R * S;
-        }
+        glm::mat4 T = glm::translate(glm::mat4(1.0f), n.translation);
+        glm::mat4 R = glm::mat4_cast(n.rotation);
+        glm::mat4 S = glm::scale(glm::mat4(1.0f), n.scale);
+        n.localMatrix = T * R * S;
+
         nodes[i] = n;
     }
 

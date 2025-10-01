@@ -167,6 +167,7 @@ enum InterpolationType {
 };
 
 enum TransformType {
+    NOTHING,
     POSITION,
     SCALE,
     ROTATION
@@ -206,7 +207,7 @@ struct Node {
     glm::mat4 globalMatrix = glm::mat4(1.0f);
     glm::vec3 translation;
     glm::quat rotation;
-    glm::vec3 scale;
+    glm::vec3 scale = glm::vec3(1.);
     std::vector<int> children;
     int parent = -1;
 };

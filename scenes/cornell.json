@@ -3,12 +3,11 @@
     "light": {
       "TYPE": "Emitting",
       "RGB": [ 1.0, 1.0, 1.0 ],
-      "EMITTANCE": 55.0
+      "EMITTANCE": 5.0
     },
-    "light2": {
-      "TYPE": "Emitting",
-      "RGB": [ 1.0, 1.0, 1.0 ],
-      "EMITTANCE": 55.0
+    "diffuse_white": {
+      "TYPE": "Diffuse",
+      "RGB": [ 0.98, 0.98, 0.98 ]
     },
     "diffuse_red": {
       "TYPE": "Diffuse",
@@ -27,33 +26,68 @@
   "Camera": {
     "RES": [ 800, 800 ],
     "FOVY": 45.0,
-    "ITERATIONS": 10,
+    "ITERATIONS": 30,
     "DEPTH": 8,
     "FILE": "cornell",
-    "EYE": [ 0.0, 10.0, 500.5 ],
+    "EYE": [ 0.0, 5.0, 10.5 ],
     "LOOKAT": [ 0.0, 5.0, 0.0 ],
-    "UP": [ 0.0, 1, 0.0 ]
+    "UP": [ 0.0, 1.0, 0.0 ]
   },
-  "EnvironmentMap": {
-    "PATH": "C:\\Users\\elias\\Downloads\\qwantani_moon_noon_puresky_4k.hdr",
-    "EMITTANCE": 55.0
-  },
-
-    "Objects":
-    [
-      {
-        "TYPE": "cube",
-        "MATERIAL": "light",
-        "TRANS": [ 0.0, -10.0, 0.0 ],
-        "ROTAT": [ 0.0, 0.0, 0.0 ],
-        "SCALE": [ 30.0, 0.3, 30.0 ]
-      },
-      {
-        "TYPE": "cube",
-        "MATERIAL": "light2",
-        "TRANS": [ 0.0, -250.0, 0.0 ],
-        "ROTAT": [ 0.0, 0.0, 0.0 ],
-        "SCALE": [ 30.0, 0.3, 30.0 ]
-      }
-    ]
+  "Objects": [
+    {
+      "TYPE": "cube",
+      "MATERIAL": "light",
+      "TRANS": [ 0.0, 10.0, 0.0 ],
+      "ROTAT": [ 0.0, 0.0, 0.0 ],
+      "SCALE": [ 3.0, 0.3, 3.0 ]
+    },
+    {
+      "TYPE": "cube",
+      "MATERIAL": "diffuse_white",
+      "TRANS": [ 0.0, 0.0, 0.0 ],
+      "ROTAT": [ 0.0, 0.0, 0.0 ],
+      "SCALE": [ 10.0, 0.01, 10.0 ]
+    },
+    {
+      "TYPE": "cube",
+      "MATERIAL": "diffuse_white",
+      "TRANS": [ 0.0, 10.0, 0.0 ],
+      "ROTAT": [ 0.0, 0.0, 90.0 ],
+      "SCALE": [ 0.01, 10.0, 10.0 ]
+    },
+    {
+      "TYPE": "cube",
+      "MATERIAL": "diffuse_white",
+      "TRANS": [ 0.0, 5.0, -5.0 ],
+      "ROTAT": [ 0.0, 90.0, 0.0 ],
+      "SCALE": [ 0.01, 10.0, 10.0 ]
+    },
+    {
+      "TYPE": "cube",
+      "MATERIAL": "diffuse_red",
+      "TRANS": [ -5.0, 5.0, 0.0 ],
+      "ROTAT": [ 0.0, 0.0, 0.0 ],
+      "SCALE": [ 0.01, 10.0, 10.0 ]
+    },
+    {
+      "TYPE": "cube",
+      "MATERIAL": "diffuse_green",
+      "TRANS": [ 5.0, 5.0, 0.0 ],
+      "ROTAT": [ 0.0, 0.0, 0.0 ],
+      "SCALE": [ 0.01, 10.0, 10.0 ]
+    },
+    {
+      "TYPE": "sphere",
+      "MATERIAL": "specular_white",
+      "TRANS": [ -1.0, 4.0, -1.0 ],
+      "ROTAT": [ 0.0, 0.0, 0.0 ],
+      "SCALE": [ 3.0, 3.0, 3.0 ]
+    }
+  ],
+  "Gltf": {
+    "PATH": "C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf",
+    "TRANS": [ 4.0, 5.0, 0.0 ],
+    "ROTAT": [ 0.0, 0.0, 0.0 ],
+    "SCALE": [ 0.02, 0.02, 0.02 ]
+  }
 }

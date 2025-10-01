@@ -134,14 +134,18 @@ void pathtraceInit(Scene* scene)
     cudaMemset(dev_materialTypeEnd, -1, COUNT * sizeof(int));
 
     //GLTF:
-    cudaMalloc(&dev_vertPos, scene->vertPos.size() * sizeof(glm::vec3));
-    cudaMemcpy(dev_vertPos, scene->vertPos.data(), scene->vertPos.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
-    cudaMalloc(&dev_triangles, scene->triangles.size() * sizeof(Triangle));
-    cudaMemcpy(dev_triangles, scene->triangles.data(), scene->triangles.size() * sizeof(Triangle), cudaMemcpyHostToDevice);
+    if (scene->vertPos.size() > 0) {
+        cudaMalloc(&dev_vertPos, scene->vertPos.size() * sizeof(glm::vec3));
+        cudaMemcpy(dev_vertPos, scene->vertPos.data(), scene->vertPos.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
-    cudaMalloc(&dev_BVHNodes, scene->bvh->nodes.size() * sizeof(BVHNode));
-    cudaMemcpy(dev_BVHNodes, scene->bvh->nodes.data(), scene->bvh->nodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
+        cudaMalloc(&dev_triangles, scene->triangles.size() * sizeof(Triangle));
+        cudaMemcpy(dev_triangles, scene->triangles.data(), scene->triangles.size() * sizeof(Triangle), cudaMemcpyHostToDevice);
+
+        cudaMalloc(&dev_BVHNodes, scene->bvh->nodes.size() * sizeof(BVHNode));
+        cudaMemcpy(dev_BVHNodes, scene->bvh->nodes.data(), scene->bvh->nodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
+    }
+
 
     checkCUDAError("pathtraceInit");
 
@@ -409,7 +413,7 @@ __global__ void ShadeEnvironment(
             pathSegments[idx].color = sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
         }
         else {
-            pathSegments[idx].color = pathSegments[idx].color *.8f;
+            pathSegments[idx].color = pathSegments[idx].color *.1f;
         }
         pathSegments[idx].remainingBounces = 0;
     }

@@ -53,9 +53,9 @@ static glm::vec4 CalculateInterpolationValue(InterpolationType type, glm::vec4 p
 void AnimationParser::UpdateLocalMatrices(Scene& scene, float currentTime) {
 	FullGltfData& gltfData = scene.gltfData;
 
-	for each (Animation anim in gltfData.animations)
+	for each (const Animation anim in gltfData.animations)
 	{
-		for each (AnimationChannel channel in anim.channels) {
+		for each (const AnimationChannel channel in anim.channels) {
 			//find current pre and post time:
 			int preIndex = -1;
 			int postIndex = -1;
@@ -102,8 +102,6 @@ void AnimationParser::UpdateLocalMatrices(Scene& scene, float currentTime) {
 				default:
 					break;			
 				}
-
-				//currentNode.translation += glm::vec3(0, .1, 0);
 		
 				currentNode.localMatrix =
 					glm::translate(glm::mat4(1.0f), currentNode.translation) *
@@ -131,28 +129,28 @@ void AnimationParser::UpdateGlobalMatrices(Scene &scene, int nodeIndex){
 
 void AnimationParser::UpdateVertexPositions(Scene& scene, Mesh& mesh)
 {
-	for (int m = 0; m < scene.gltfData.meshes.size(); ++m) {
-		Mesh& mesh = scene.gltfData.meshes[m];
-		for (int i = 0; i < mesh.positions.size() ; ++i) {
-			glm::vec3 bindPos = mesh.bindVertPos[i];
-			glm::vec4 newPos = glm::vec4(0.0f);
-
-			glm::ivec4 joints = mesh.jointIndices[i];
-			glm::vec4 weights = mesh.weights[i];
-			Skin skin = mesh.skin;
-
-			for (int i = 0; i < 4; ++i) {
-				int jointIndex = joints[i];
-				float weight = weights[i];
-				//todo: multiple skins
-				if (weight > 0.0f) {
-					glm::mat4 jointMatrix = scene.gltfData.nodes[skin.joints[jointIndex]].globalMatrix;
-					glm::mat4 skinMatrix = jointMatrix * skin.inverseBindMatrices[jointIndex];
-					newPos += weight * (skinMatrix * glm::vec4(bindPos, 1.0f));
-				}
-			}
-
-			mesh.positions[i] = glm::vec3(newPos.x, newPos.y, newPos.z);
+	for (int i = 0; i < mesh.positions.size() ; ++i) {
+		glm::vec3 bindPos = mesh.bindVertPos[i];
+		glm::vec4 newPos = glm::vec4(0.0f);
+	
+		if (i >= mesh.jointIndices.size() || i >= mesh.weights.size()) {
+			continue;
 		}
+
+		glm::ivec4 joints = mesh.jointIndices[i];
+		glm::vec4 weights = mesh.weights[i];
+		Skin skin = mesh.skin;
+	
+		for (int i = 0; i < 4; ++i) {
+			int jointIndex = joints[i];
+			float weight = weights[i];
+			if (weight > 0.0f) {
+				glm::mat4 jointMatrix = scene.gltfData.nodes[skin.joints[jointIndex]].globalMatrix;
+				glm::mat4 skinMatrix = jointMatrix * skin.inverseBindMatrices[jointIndex];
+				newPos += weight * (skinMatrix * glm::vec4(bindPos, 1.0f));
+			}
+		}
+	
+		mesh.positions[i] = glm::vec3(newPos.x, newPos.y, newPos.z);
 	}
 }

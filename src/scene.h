@@ -35,12 +35,13 @@ public:
     std::unique_ptr<BVH> bvh;
 
     FullGltfData gltfData;
+    glm::mat4 gltfFrame;
 
     RenderState state;
 
     void BuildBVH();
 
-    void BufferMesh(std::vector<Mesh> meshes);
+    void BufferMesh(std::vector<Mesh>& meshes);
 
     void IterateFrame();
 

@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <tiny_gltf.h>
 #include "AnimationParser.h"
+#include <glm/gtx/transform.hpp>
 
 using namespace std;
 using json = nlohmann::json;
@@ -128,27 +129,40 @@ void Scene::loadFromJSON(const std::string& jsonName)
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
 
-    Gltf parser;
-    //"C:\Users\elias\Downloads\animated_dance_teacher_-_bellydance.zip"
-    gltfData = parser.LoadFromFile("C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf");
-    BufferMesh(gltfData.meshes);
-    BuildBVH();
-
-    Geom meshGeom;
-    meshGeom.type = TRIANGLES;
-    meshGeom.materialid = 1;
-    geoms.push_back(meshGeom);
-
-
-    currentFrame = -1;
-    totalFrames = fps * gltfData.animationTime + 1.;
-
-
     //find environment map
     if (data.contains("EnvironmentMap")) {
         const auto& environmentData = data["EnvironmentMap"];
         std::string path = environmentData["PATH"];
         parseTextureFromPath(path, environmentWidth, environmentHeight, environmentTexture);
+    }
+
+    if (data.contains("Gltf")) {
+        const auto& gltfJson = data["Gltf"];
+        std::string path = gltfJson["PATH"];
+
+        const auto& trans = gltfJson["TRANS"];
+        const auto& rotat = gltfJson["ROTAT"];
+        const auto& scale = gltfJson["SCALE"];
+
+        glm::mat4 T = glm::translate(glm::mat4(1.0f), glm::vec3(trans[0], trans[1], trans[2]));
+        glm::mat4 R = glm::mat4_cast(glm::quat(glm::vec3(rotat[0], rotat[1], rotat[2])));
+        glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(scale[0],scale[1],scale[2]));
+        gltfFrame = T * R * S;
+
+        Gltf parser;
+        //"C:\Users\elias\Downloads\animated_dance_teacher_-_bellydance.zip"
+        //"C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf"
+        gltfData = parser.LoadFromFile(path);
+        BufferMesh(gltfData.meshes);
+        BuildBVH();
+
+        Geom meshGeom;
+        meshGeom.type = TRIANGLES;
+        meshGeom.materialid = 1;
+        geoms.push_back(meshGeom);
+
+        currentFrame = -1;
+        totalFrames = fps * gltfData.animationTime + 1.;
     }
 }
 
@@ -164,8 +178,8 @@ void Scene::BuildBVH()
     triangles = reordered;
 }
 
-void Scene::BufferMesh(std::vector<Mesh> meshes) {
-    for each (Mesh m in meshes){
+void Scene::BufferMesh(std::vector<Mesh>& meshes) {
+    for (Mesh& m : meshes){
         
         //Material mat;
         //mat.materialType = DIFFUSE;
@@ -182,7 +196,8 @@ void Scene::BufferMesh(std::vector<Mesh> meshes) {
         int indexOffset = vertPos.size();
         m.vertexOffset = indexOffset;
         for (int i = 0; i < m.positions.size(); ++i) {
-            vertPos.push_back(m.positions[i]);
+            glm::vec4 transformedPosition = gltfFrame * glm::vec4(m.positions[i].x, m.positions[i].y, m.positions[i].z, 1);
+            vertPos.push_back(glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z));
         }
 
         for (int i = 0; i < m.indices.size() - 2; i += 3) {
@@ -200,25 +215,25 @@ void Scene::IterateFrame()
     currentFrame++;
     float currentTime = currentFrame / (float) fps;
     
-    if (currentFrame > totalFrames) {
+    if (currentFrame > totalFrames || gltfData.animationTime <= 0.f) {
         return;
     }
 
     AnimationParser animator;
-
     animator.UpdateLocalMatrices(*this, currentTime);
 
     for(int i = 0; i < gltfData.nodes.size(); ++i){
-        Node node = gltfData.nodes[i];
+        Node& node = gltfData.nodes[i];
         if (node.parent < 0) {
                 animator.UpdateGlobalMatrices(*this, i);
         }
     }
 
-    for each (Mesh mesh in gltfData.meshes) {
+    for (Mesh& mesh : gltfData.meshes) {
         animator.UpdateVertexPositions(*this, mesh);
         for (int i = 0; i < mesh.positions.size(); ++i) {
-            vertPos[i + mesh.vertexOffset] = mesh.positions[i];
+            glm::vec4 transformedPosition = gltfFrame * glm::vec4(mesh.positions[i].x, mesh.positions[i].y, mesh.positions[i].z, 0);
+            vertPos[i + mesh.vertexOffset] = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
         }
     }
 
