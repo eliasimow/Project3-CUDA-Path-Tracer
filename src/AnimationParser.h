@@ -12,5 +12,5 @@ public:
 	/// <param name="scene"></param>
 	static void UpdateGlobalMatrices(Scene& scene, int nodeIndex);
 
-	static void UpdateVertexPositions(Scene& scene, Mesh& mesh);
+	static void UpdateVerticesAndNormals(Scene& scene, Mesh& mesh);
 };

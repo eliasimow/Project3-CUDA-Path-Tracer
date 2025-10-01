@@ -78,7 +78,7 @@ __host__ __device__ float intersectBVH(
     Ray ray, 
     const BVHNode* __restrict__  nodes,
     const Triangle* __restrict__ triangles,
-    const glm::vec3* __restrict__ positions,
+    const VertexData* __restrict__ vertexData,
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside);

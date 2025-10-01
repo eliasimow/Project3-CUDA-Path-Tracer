@@ -24,12 +24,12 @@
     }
   },
   "Camera": {
-    "RES": [ 800, 800 ],
+    "RES": [ 1920, 1080 ],
     "FOVY": 45.0,
-    "ITERATIONS": 30,
+    "ITERATIONS": 1000,
     "DEPTH": 8,
     "FILE": "cornell",
-    "EYE": [ 0.0, 5.0, 10.5 ],
+    "EYE": [ 0.0, 5.0, 30.5 ],
     "LOOKAT": [ 0.0, 5.0, 0.0 ],
     "UP": [ 0.0, 1.0, 0.0 ]
   },
@@ -37,57 +37,18 @@
     {
       "TYPE": "cube",
       "MATERIAL": "light",
-      "TRANS": [ 0.0, 10.0, 0.0 ],
+      "TRANS": [ 0.0, -1.0, 0.0 ],
       "ROTAT": [ 0.0, 0.0, 0.0 ],
-      "SCALE": [ 3.0, 0.3, 3.0 ]
-    },
-    {
-      "TYPE": "cube",
-      "MATERIAL": "diffuse_white",
-      "TRANS": [ 0.0, 0.0, 0.0 ],
-      "ROTAT": [ 0.0, 0.0, 0.0 ],
-      "SCALE": [ 10.0, 0.01, 10.0 ]
-    },
-    {
-      "TYPE": "cube",
-      "MATERIAL": "diffuse_white",
-      "TRANS": [ 0.0, 10.0, 0.0 ],
-      "ROTAT": [ 0.0, 0.0, 90.0 ],
-      "SCALE": [ 0.01, 10.0, 10.0 ]
-    },
-    {
-      "TYPE": "cube",
-      "MATERIAL": "diffuse_white",
-      "TRANS": [ 0.0, 5.0, -5.0 ],
-      "ROTAT": [ 0.0, 90.0, 0.0 ],
-      "SCALE": [ 0.01, 10.0, 10.0 ]
-    },
-    {
-      "TYPE": "cube",
-      "MATERIAL": "diffuse_red",
-      "TRANS": [ -5.0, 5.0, 0.0 ],
-      "ROTAT": [ 0.0, 0.0, 0.0 ],
-      "SCALE": [ 0.01, 10.0, 10.0 ]
-    },
-    {
-      "TYPE": "cube",
-      "MATERIAL": "diffuse_green",
-      "TRANS": [ 5.0, 5.0, 0.0 ],
-      "ROTAT": [ 0.0, 0.0, 0.0 ],
-      "SCALE": [ 0.01, 10.0, 10.0 ]
-    },
-    {
-      "TYPE": "sphere",
-      "MATERIAL": "specular_white",
-      "TRANS": [ -1.0, 4.0, -1.0 ],
-      "ROTAT": [ 0.0, 0.0, 0.0 ],
-      "SCALE": [ 3.0, 3.0, 3.0 ]
+      "SCALE": [ 30.0, 0.3, 30.0 ]
     }
   ],
   "Gltf": {
     "PATH": "C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf",
     "TRANS": [ 4.0, 5.0, 0.0 ],
     "ROTAT": [ 0.0, 0.0, 0.0 ],
-    "SCALE": [ 0.02, 0.02, 0.02 ]
+    "SCALE": [ 0.1, 0.1, 0.1 ]
+  },
+  "EnvironmentMap": {
+    "PATH": "C:/Users/elias/Downloads/qwantani_moon_noon_puresky_4k.hdr"
   }
 }

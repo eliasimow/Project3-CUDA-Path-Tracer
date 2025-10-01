@@ -2,7 +2,7 @@
 
 
 
-BVH::BVH(std::vector<Triangle>& tri, std::vector<glm::vec3>& pos) : triangles(tri), positions(pos)
+BVH::BVH(std::vector<Triangle>& tri, std::vector<VertexData>& pos) : triangles(tri), positions(pos)
 {}
 
 void BVH::BuildBVH()
@@ -31,13 +31,13 @@ void BVH::UpdateBounds(int nodeIdx) {
         int triIndex = sortedTriIndices[first + i];
         Triangle &leafTri = triangles[triIndex];
 
-        node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[0]]);
-        node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[1]]);
-        node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[2]]);
+        node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[0]].position);
+        node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[1]].position);
+        node.boxMin = glm::min(node.boxMin, positions[leafTri.vertIndices[2]].position);
 
-        node.boxMax = glm::max(node.boxMax, positions[leafTri.vertIndices[0]]);
-        node.boxMax = glm::max(node.boxMax, positions[leafTri.vertIndices[1]]);
-        node.boxMax = glm::max(node.boxMax, positions[leafTri.vertIndices[2]]);
+        node.boxMax = glm::max(node.boxMax, positions[leafTri.vertIndices[0]].position);
+        node.boxMax = glm::max(node.boxMax, positions[leafTri.vertIndices[1]].position);
+        node.boxMax = glm::max(node.boxMax, positions[leafTri.vertIndices[2]].position);
     }
 }
 
@@ -53,7 +53,7 @@ void BVH::Subdivide(int nodeIdx) {
     while (i <= j) {
         int triIndex = sortedTriIndices[i];
         Triangle t = triangles[triIndex];
-        glm::vec3 centroid = (positions[t.vertIndices[0]] + positions[t.vertIndices[1]] + positions[t.vertIndices[2]]) * 0.3333f;
+        glm::vec3 centroid = (positions[t.vertIndices[0]].position + positions[t.vertIndices[1]].position + positions[t.vertIndices[2]].position) * 0.3333f;
         if (centroid[axis] <= split) {
             i++;
         }

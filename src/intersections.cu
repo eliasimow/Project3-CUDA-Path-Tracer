@@ -62,15 +62,15 @@ __host__ __device__ float triangleIntersectionTest(
     Ray r,
     int triangleIdx,
     const Triangle* __restrict__ triangles,
-    const glm::vec3* __restrict__ positions,
+    const VertexData* __restrict__ vertexData,
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside)
 {
     Triangle tri = triangles[triangleIdx];
-    glm::vec3 pos1 = positions[tri.vertIndices[0]];
-    glm::vec3 pos2 = positions[tri.vertIndices[1]];
-    glm::vec3 pos3 = positions[tri.vertIndices[2]];
+    glm::vec3 pos1 = vertexData[tri.vertIndices[0]].position;
+    glm::vec3 pos2 = vertexData[tri.vertIndices[1]].position;
+    glm::vec3 pos3 = vertexData[tri.vertIndices[2]].position;
 
     glm::vec3 edge1 = pos2 - pos1;
     glm::vec3 edge2 = pos3 - pos1;
@@ -181,7 +181,7 @@ __host__ __device__ float intersectBVH(
     Ray ray, 
     const BVHNode* __restrict__  nodes,
     const Triangle* __restrict__ triangles,
-    const glm::vec3* __restrict__ positions,
+    const VertexData* __restrict__ positions,
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside) {

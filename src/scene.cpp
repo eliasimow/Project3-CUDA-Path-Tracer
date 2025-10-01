@@ -168,7 +168,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
 
 void Scene::BuildBVH()
 {
-    bvh = std::make_unique<BVH>(triangles, vertPos);
+    bvh = std::make_unique<BVH>(triangles, vertexData);
     bvh->BuildBVH();
 
     std::vector<Triangle> reordered(triangles.size());
@@ -193,11 +193,14 @@ void Scene::BufferMesh(std::vector<Mesh>& meshes) {
         meshGeometry.materialid = materials.size() - 1;
         meshGeometry.type = MESH;
 
-        int indexOffset = vertPos.size();
+        int indexOffset = vertexData.size();
         m.vertexOffset = indexOffset;
         for (int i = 0; i < m.positions.size(); ++i) {
             glm::vec4 transformedPosition = gltfFrame * glm::vec4(m.positions[i].x, m.positions[i].y, m.positions[i].z, 1);
-            vertPos.push_back(glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z));
+            glm::vec3 position = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
+            glm::vec3 normal = m.normals[i];
+
+            vertexData.push_back(VertexData(position, normal));
         }
 
         for (int i = 0; i < m.indices.size() - 2; i += 3) {
@@ -230,10 +233,14 @@ void Scene::IterateFrame()
     }
 
     for (Mesh& mesh : gltfData.meshes) {
-        animator.UpdateVertexPositions(*this, mesh);
-        for (int i = 0; i < mesh.positions.size(); ++i) {
+        animator.UpdateVerticesAndNormals(*this, mesh);
+        for (int i = 0; i < mesh.positions.size(); ++i) {            
             glm::vec4 transformedPosition = gltfFrame * glm::vec4(mesh.positions[i].x, mesh.positions[i].y, mesh.positions[i].z, 0);
-            vertPos[i + mesh.vertexOffset] = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
+            glm::vec3 position = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
+            glm::vec3 normal = glm::vec3(mesh.normals[i].x, mesh.normals[i].y, mesh.normals[i].z);
+
+
+           vertexData[i + mesh.vertexOffset] = VertexData(position, normal);
         }
     }
 

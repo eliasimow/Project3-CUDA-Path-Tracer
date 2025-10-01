@@ -11,9 +11,9 @@ public:
     std::vector<BVHNode> nodes;
 
     std::vector<Triangle>& triangles;
-    std::vector<glm::vec3>& positions;
+    std::vector<VertexData>& positions;
 
-    BVH(std::vector<Triangle>& tri, std::vector<glm::vec3>& pos);
+    BVH(std::vector<Triangle>& tri, std::vector<VertexData>& pos);
     void BuildBVH();
     void UpdateBounds(int nodeIdx);
     void Subdivide(int nodeIdx);

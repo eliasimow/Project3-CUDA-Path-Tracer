@@ -20,7 +20,8 @@ public:
     //std::vector<unsigned int> vertIdx;
     std::vector<Triangle> triangles;
     
-    std::vector<glm::vec3> vertPos;
+    //std::vector<glm::vec3> vertPos;
+    std::vector<VertexData> vertexData;
 
     std::vector<glm::vec4> environmentTexture;
     int environmentWidth = 0;

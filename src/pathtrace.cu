@@ -84,7 +84,7 @@ static ShadeableIntersection* dev_intersections = NULL;
 static int* dev_materialType = NULL;
 static int* dev_materialTypeStart = NULL;
 static int* dev_materialTypeEnd = NULL;
-static glm::vec3* dev_vertPos = NULL;
+static VertexData* dev_vertData = NULL;
 static Triangle* dev_triangles = NULL;
 static BVHNode* dev_BVHNodes = NULL;
 static cudaArray_t dev_environmentMap = NULL;
@@ -135,9 +135,9 @@ void pathtraceInit(Scene* scene)
 
     //GLTF:
 
-    if (scene->vertPos.size() > 0) {
-        cudaMalloc(&dev_vertPos, scene->vertPos.size() * sizeof(glm::vec3));
-        cudaMemcpy(dev_vertPos, scene->vertPos.data(), scene->vertPos.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+    if (scene->vertexData.size() > 0) {
+        cudaMalloc(&dev_vertData, scene->vertexData.size() * sizeof(VertexData));
+        cudaMemcpy(dev_vertData, scene->vertexData.data(), scene->vertexData.size() * sizeof(VertexData), cudaMemcpyHostToDevice);
 
         cudaMalloc(&dev_triangles, scene->triangles.size() * sizeof(Triangle));
         cudaMemcpy(dev_triangles, scene->triangles.data(), scene->triangles.size() * sizeof(Triangle), cudaMemcpyHostToDevice);
@@ -184,7 +184,7 @@ void pathtraceFree()
     cudaFree(dev_materialTypeStart);
     cudaFree(dev_materialType);
     cudaFree(dev_triangles);
-    cudaFree(dev_vertPos);
+    cudaFree(dev_vertData);
     cudaFree(dev_BVHNodes);
 
     checkCUDAError("pathtraceFree");
@@ -207,7 +207,7 @@ void pathtraceFree()
 * motion blur - jitter rays "in time"
 * lens effect - jitter ray origin positions based on a lens
 */
-__global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, PathSegment* pathSegments)
+__global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, PathSegment* pathSegments, bool stochastic)
 {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -219,11 +219,27 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
         segment.ray.origin = cam.position;
         segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
-        // TODO: implement antialiasing by jittering the ray
-        segment.ray.direction = glm::normalize(cam.view
-            - cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
-            - cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f)
-        );
+
+
+        if (stochastic) {
+            thrust::default_random_engine rng = makeSeededRandomEngine(iter, index, index);
+            thrust::uniform_real_distribution<float> range(-.5f, 0.5f);
+            // offset
+            float moveX = range(rng);
+            float moveY = range(rng);
+
+            segment.ray.direction = glm::normalize(cam.view
+                - cam.right * cam.pixelLength.x * ((float)x + moveX - (float)cam.resolution.x * 0.5f)
+                - cam.up * cam.pixelLength.y * ((float)y + moveY - (float)cam.resolution.y * 0.5f));
+        }
+        else {
+            // TODO: implement antialiasing by jittering the ray
+            segment.ray.direction = glm::normalize(cam.view
+                - cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
+                - cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f)
+            );
+        }
+
 
         segment.pixelIndex = index;
         segment.remainingBounces = traceDepth;
@@ -243,7 +259,7 @@ __global__ void computeIntersections(
     BVHNode* bvhNodes,
     Triangle* triangles,
     int geoms_size,
-    glm::vec3* positions,
+    VertexData* vertexData,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -286,7 +302,7 @@ __global__ void computeIntersections(
             else if (geom.type == TRIANGLES)
             {
 
-                t = intersectBVH(pathSegment.ray, bvhNodes, triangles, positions, tmp_intersect, tmp_normal, outside);
+                t = intersectBVH(pathSegment.ray, bvhNodes, triangles, vertexData, tmp_intersect, tmp_normal, outside);
             }
             if (t > 0.0f && t_min > t)
             {
@@ -466,7 +482,7 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(uchar4* pbo, int frame, int iter)
+void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 {
     const int traceDepth = hst_scene->state.traceDepth;
     const Camera& cam = hst_scene->state.camera;
@@ -511,7 +527,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     //   for you.
 
     // TODO: perform one iteration of path tracing
-    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths);
+    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths, settings.stochastic);
     checkCUDAError("generate camera ray");
 
     int depth = 0;
@@ -539,7 +555,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             dev_BVHNodes,
             dev_triangles,
             hst_scene->geoms.size(),
-            dev_vertPos,
+            dev_vertData,
             dev_intersections
         );
         checkCUDAError("trace one bounce");
@@ -677,7 +693,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 void rewritePositions(Scene* scene)
 {
     //have to resend bvh and positions. i think just that for now:
-    cudaMemcpy(dev_vertPos, scene->vertPos.data(), scene->vertPos.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_vertData, scene->vertexData.data(), scene->vertexData.size() * sizeof(VertexData), cudaMemcpyHostToDevice);
 
     checkCUDAError("copy animation verts");
 

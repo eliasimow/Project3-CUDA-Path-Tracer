@@ -212,11 +212,19 @@ struct Node {
     int parent = -1;
 };
 
+struct VertexData {
+    VertexData(glm::vec3 p, glm::vec3 n) : position(p), normal(n) {}
+
+    glm::vec3 position;
+    glm::vec3 normal;
+};
+
 struct Mesh {
     std::string name;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> bindVertPos;
     std::vector<glm::vec3> normals;
+    std::vector<glm::vec3> bindNormals;
     std::vector<glm::vec2> texcoords0;
     std::vector<uint32_t> indices;
     std::vector<glm::uvec4> jointIndices;
@@ -226,6 +234,12 @@ struct Mesh {
     Skin skin;
 };
 
+struct SceneSettings {
+    bool stochastic = true;
+    bool materialSort = true;
+    bool streamCompact = true;
+    bool bvh = true;
+};
 
 
 struct FullGltfData {

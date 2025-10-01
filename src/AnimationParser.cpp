@@ -127,11 +127,13 @@ void AnimationParser::UpdateGlobalMatrices(Scene &scene, int nodeIndex){
 	}
 }
 
-void AnimationParser::UpdateVertexPositions(Scene& scene, Mesh& mesh)
+void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 {
 	for (int i = 0; i < mesh.positions.size() ; ++i) {
 		glm::vec3 bindPos = mesh.bindVertPos[i];
+		glm::vec3 bindNorm = mesh.bindNormals[i];
 		glm::vec4 newPos = glm::vec4(0.0f);
+		glm::vec4 newNorm = glm::vec4(0.0f);
 	
 		if (i >= mesh.jointIndices.size() || i >= mesh.weights.size()) {
 			continue;
@@ -148,9 +150,11 @@ void AnimationParser::UpdateVertexPositions(Scene& scene, Mesh& mesh)
 				glm::mat4 jointMatrix = scene.gltfData.nodes[skin.joints[jointIndex]].globalMatrix;
 				glm::mat4 skinMatrix = jointMatrix * skin.inverseBindMatrices[jointIndex];
 				newPos += weight * (skinMatrix * glm::vec4(bindPos, 1.0f));
+				newNorm += weight * (skinMatrix * glm::vec4(bindNorm, 1.0f));
 			}
 		}
 	
 		mesh.positions[i] = glm::vec3(newPos.x, newPos.y, newPos.z);
+		mesh.normals[i] = glm::normalize(glm::vec3(newNorm.x, newNorm.y, newNorm.z));
 	}
 }
