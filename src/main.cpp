@@ -23,6 +23,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "TheNoiser.h"
 
 static std::string startTimeString;
 
@@ -410,6 +411,7 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+
 void saveImage()
 {
 	float samples = iteration;
@@ -433,6 +435,31 @@ void saveImage()
 
 	// CHECKITOUT
 	img.savePNG(filename);
+
+	// output image file
+	Image denoisedImage(width, height);
+	TheNoiser denoiser;
+	denoiser.init(width, height);
+	std::vector<glm::vec3> denoisedPixels = denoiser.denoise(renderState->image);
+	denoiser.free();
+	for (int x = 0; x < width; x++)
+	{
+		for (int y = 0; y < height; y++)
+		{
+			int index = x + (y * width);
+			glm::vec3 pix = denoisedPixels[index];
+			denoisedImage.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
+		}
+	}
+
+	std::string denoisedFileName = renderState->imageName;
+	std::ostringstream denoisedSS;
+	denoisedSS << denoisedFileName << "." << startTimeString << "." << samples << "samp|DENOISED";
+	denoisedFileName = denoisedSS.str();
+
+	// CHECKITOUT
+	denoisedImage.savePNG(denoisedFileName);
+
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
@@ -519,6 +546,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			break;
 		case GLFW_KEY_S:
 			saveImage();
+
+
+
 			break;
 		case GLFW_KEY_SPACE:
 			camchanged = true;

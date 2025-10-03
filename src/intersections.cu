@@ -104,9 +104,9 @@ __host__ __device__ float triangleIntersectionTest(
 	float t = glm::dot(edge2, qVec) * inverseDeterminate;
 	intersectionPoint = r.origin + r.direction * t;
 
-	glm::vec3 n1 = vertexData[tri.vertIndices[0]].normal;
-	glm::vec3 n2 = vertexData[tri.vertIndices[1]].normal;
-	glm::vec3 n3 = vertexData[tri.vertIndices[2]].normal;
+	glm::vec3 n1 = vertexData[tri.vertIndices[0]].surfaceNormal;
+	glm::vec3 n2 = vertexData[tri.vertIndices[1]].surfaceNormal;
+	glm::vec3 n3 = vertexData[tri.vertIndices[2]].surfaceNormal;
 	normal = glm::normalize(w * n1 + u * n2 + v * n3);
 
 	outside = glm::dot(normal, r.direction) < FLT_EPSILON;

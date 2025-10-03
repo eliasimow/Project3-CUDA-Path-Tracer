@@ -212,10 +212,10 @@ struct Node {
 };
 
 struct VertexData {
-	VertexData(glm::vec3 p, glm::vec3 n) : position(p), normal(n) {}
+	VertexData(glm::vec3 p, glm::vec3 n) : position(p), surfaceNormal(n) {}
 
 	glm::vec3 position;
-	glm::vec3 normal;
+	glm::vec3 surfaceNormal;
 };
 
 struct Mesh {

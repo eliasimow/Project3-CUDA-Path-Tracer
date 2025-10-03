@@ -354,7 +354,6 @@ __global__ void ShadeDiffuse(
 		//we'll use local coordinate systems following the textbook :) 
 		glm::vec3 localPath = getLocalPath(pathSegments[idx].ray.direction, intersection.surfaceNormal);
 		glm::vec3 localNormal(0.f, 0.f, 1.f);
-
 		glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
 		////            glm::vec3 trueDirection = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
 
@@ -371,6 +370,8 @@ __global__ void ShadeDiffuse(
 		if (glm::dot(pathSegments[idx].ray.direction, intersection.surfaceNormal) < 0) {
 			pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
 		}
+
+		//pathSegments[idx].color = intersection.surfaceNormal;
 		pathSegments[idx].remainingBounces--;
 	}
 }

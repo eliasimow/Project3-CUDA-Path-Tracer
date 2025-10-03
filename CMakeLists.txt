@@ -46,6 +46,15 @@
     find_package(GLM REQUIRED)
     include_directories(${GLM_INCLUDE_DIRS})
 
+    set(OptiX_ROOT "${CMAKE_SOURCE_DIR}/external/OptiX SDK 9.0.0" CACHE PATH "Path to OptiX SDK")
+
+    set(OptiX_INCLUDE_DIR "${OptiX_ROOT}/include")
+    set(OptiX_LIBRARY_DIR "${OptiX_ROOT}/lib64")
+
+    include_directories(${OptiX_INCLUDE_DIR})
+    link_directories(${OptiX_LIBRARY_DIR})
+
+
     set(headers
         src/image.h
         src/interactions.h
@@ -59,6 +68,7 @@
         src/gltf/GltfParse.h
         src/BVHNode.cuh
         src/AnimationParser.h
+        src/TheNoiser.h
     )
 
     set(sources
@@ -74,6 +84,7 @@
         src/stb.cpp
         src/BVHNode.cu
         src/AnimationParser.cpp
+        src/TheNoiser.cpp
     )
 
     set(imgui_headers
@@ -121,7 +132,8 @@
         ${GL_LIBRARIES}
         CUDA::cudart
     )
-    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CUDAToolkit_INCLUDE_DIRS} ${OPTIX_DIR})
+
 
     set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
       CUDA_SEPARABLE_COMPILATION ON
