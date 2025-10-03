@@ -138,15 +138,13 @@ struct BVHNode
 	BVHNode() {
 		boxMin = glm::vec3(0, 0, 0);
 		boxMin = glm::vec3(0, 0, 0);
-		left = 0;
-		right = 0;
-		firstIndex = 0;
+		leftOrFirstTri = 0;
 		primCount = 0;
 	}
 
 	glm::vec3 boxMin, boxMax;
-	unsigned int left = 0, right = 0;
-	unsigned int firstIndex = 0, primCount = 0;
+	unsigned int leftOrFirstTri = 0;
+	unsigned int primCount = 0;
 };
 
 
@@ -263,5 +261,18 @@ struct FullGltfData {
 		for (int i = 0; i < iNodes.size(); ++i) {
 			nodes[i] = iNodes[i];
 		}
+	}
+};
+
+
+struct aabb
+{
+	glm::vec3 bmin = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+	glm::vec3 bmax = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	void grow(glm::vec3 shift) { bmin = glm::min(bmin, shift), bmax = glm::max(bmax, shift); }
+	float area()
+	{
+		glm::vec3 size = bmax - bmin; // box extent
+		return size.x * size.y + size.y * size.z + size.z * size.x;
 	}
 };

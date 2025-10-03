@@ -402,7 +402,9 @@ __global__ void ShadeSpecular(
 		glm::vec3 localPath = getLocalPath(pathSegments[idx].ray.direction, intersection.surfaceNormal);
 		glm::vec3 localNormal(0.f, 0.f, 1.f);
 
-		glm::vec3 newOrigin = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
+
+		glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
+		glm::vec3 trueDirection = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
 
 		glm::vec3 wi = calculateRandomDirectionInHemisphere(localNormal, rng);
 		if (wi.z < 0) {
@@ -411,12 +413,8 @@ __global__ void ShadeSpecular(
 		float lightTerm = glm::dot(localNormal, wi);
 		pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
 
-		pathSegments[idx].ray.direction = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
+		pathSegments[idx].ray.direction = trueDirection;
 		pathSegments[idx].ray.origin = newOrigin;
-
-		if (glm::dot(pathSegments[idx].ray.direction, intersection.surfaceNormal) < 0) {
-			pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
-		}
 		pathSegments[idx].remainingBounces--;
 	}
 }
@@ -458,13 +456,13 @@ __global__ void ShadeEnvironment(
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0) {
-		//if (depth == 1) {
-		//	pathSegments[idx].color = sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
-		//}
-		//else {
-		//	pathSegments[idx].color = pathSegments[idx].color * .1f;
-		//}
-		pathSegments[idx].color *= sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
+		if (depth == 1) {
+			pathSegments[idx].color = sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
+		}
+		else {
+			pathSegments[idx].color = pathSegments[idx].color * 1.f;
+		}
+		//	pathSegments[idx].color *= sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
 		pathSegments[idx].remainingBounces = 0;
 	}
 }

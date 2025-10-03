@@ -29,7 +29,7 @@
     "ITERATIONS": 1000,
     "DEPTH": 8,
     "FILE": "cornell",
-    "EYE": [ 0.0, 5.0, 30.5 ],
+    "EYE": [ 0.0, 5.0, 120.5 ],
     "LOOKAT": [ 0.0, 5.0, 0.0 ],
     "UP": [ 0.0, 1.0, 0.0 ]
   },
@@ -37,17 +37,18 @@
     {
       "TYPE": "cube",
       "MATERIAL": "light",
-      "TRANS": [ 0.0, -100.0, 0.0 ],
+      "TRANS": [ 0.0, -22.0, 0.0 ],
       "ROTAT": [ 0.0, 0.0, 0.0 ],
-      "SCALE": [ 30.0, 0.3, 30.0 ]
+      "SCALE": [ 3000.0, 0.3, 3000.0 ]
     }
   ],
+
   "Gltf": {
-    "PATH": "C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf",
-    "MATERIAL": "specular_white",
-    "TRANS": [ 4.0, 5.0, 0.0 ],
+    "PATH": "C:/Users/elias/Downloads/plague_doctor/scene.gltf",
+    "MATERIAL": "diffuse_red",
+    "TRANS": [ 0.0, 5.0, -2.0 ],
     "ROTAT": [ 0.0, 0.0, 0.0 ],
-    "SCALE": [ 0.1, 0.1, 0.1 ]
+    "SCALE": [ 1.1, 1.1, 1.1 ]
   },
   "EnvironmentMap": {
     "PATH": "C:/Users/elias/Downloads/qwantani_moon_noon_puresky_4k.hdr"
