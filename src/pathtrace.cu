@@ -348,31 +348,61 @@ __global__ void ShadeDiffuse(
 
 		Material material = materials[intersection.materialId];
 		glm::vec3 materialColor = material.color;
-
-		// If the material indicates that the object was a light, "light" the ray
-
-		//we'll use local coordinate systems following the textbook :) 
-		glm::vec3 localPath = getLocalPath(pathSegments[idx].ray.direction, intersection.surfaceNormal);
-		glm::vec3 localNormal(0.f, 0.f, 1.f);
 		glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
-		////            glm::vec3 trueDirection = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
-
-		glm::vec3 wi = calculateRandomDirectionInHemisphere(localNormal, rng);
-		if (wi.z < 0) {
-			wi *= -1.f;
-		}
-		float lightTerm = glm::dot(localNormal, wi);
-		pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
 
 		pathSegments[idx].ray.direction = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
+
+		float lightTerm = glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction);
+
+		pathSegments[idx].color *= (materialColor * lightTerm);
+
 		pathSegments[idx].ray.origin = newOrigin;
 
 		if (glm::dot(pathSegments[idx].ray.direction, intersection.surfaceNormal) < 0) {
 			pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
 		}
 
-		//pathSegments[idx].color = intersection.surfaceNormal;
-		pathSegments[idx].remainingBounces--;
+		//pathSegments[idx].color = (glm::vec3(1., 1., 1.) + intersection.surfaceNormal) / 2.f;
+		//pathSegments[idx].remainingBounces = 0;
+	}
+}
+
+__global__ void ShadeNormal(
+	int iter,
+	int num_paths,
+	ShadeableIntersection* shadeableIntersections,
+	PathSegment* pathSegments,
+	Material* materials,
+	int bounceCount)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
+	{
+		ShadeableIntersection intersection = shadeableIntersections[idx];
+
+		if (intersection.t < 0) {
+			pathSegments[idx].color = glm::vec3(0.f);
+		}
+		else {
+			glm::vec3 test = (glm::vec3(1.f) + intersection.surfaceNormal) / 2.f;
+
+			//if (test.x > test.y && test.x > test.z) {
+			//	pathSegments[idx].color = glm::normalize(glm::vec3(test.x, 0, 0));
+			//}
+			//else if (test.y > test.x && test.y > test.z) {
+			//	pathSegments[idx].color = glm::normalize(glm::vec3(0, test.y, 0));
+
+			//}
+			//else if (test.z > test.x && test.z > test.y) {
+			//	pathSegments[idx].color = glm::normalize(glm::vec3(0, 0, test.z));
+			//}
+			//else {
+			//	pathSegments[idx].color = test;
+
+			//}
+			pathSegments[idx].color = test;
+		}
+		pathSegments[idx].remainingBounces = 0;
 	}
 }
 
@@ -387,6 +417,7 @@ __global__ void ShadeSpecular(
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
 	{
+
 		ShadeableIntersection intersection = shadeableIntersections[idx];
 		// Set up the RNG
 		// LOOK: this is how you use thrust's RNG! Please look at
@@ -396,27 +427,19 @@ __global__ void ShadeSpecular(
 
 		Material material = materials[intersection.materialId];
 		glm::vec3 materialColor = material.color;
-
-		// If the material indicates that the object was a light, "light" the ray
-
-		//we'll use local coordinate systems following the textbook :) 
-		glm::vec3 localPath = getLocalPath(pathSegments[idx].ray.direction, intersection.surfaceNormal);
-		glm::vec3 localNormal(0.f, 0.f, 1.f);
-
-
 		glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
-		glm::vec3 trueDirection = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
 
-		glm::vec3 wi = calculateRandomDirectionInHemisphere(localNormal, rng);
-		if (wi.z < 0) {
-			wi *= -1.f;
-		}
-		float lightTerm = glm::dot(localNormal, wi);
-		pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
+		pathSegments[idx].ray.direction = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
 
-		pathSegments[idx].ray.direction = trueDirection;
+		float lightTerm = glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction);
+
+		pathSegments[idx].color *= (materialColor * lightTerm);
+
 		pathSegments[idx].ray.origin = newOrigin;
-		pathSegments[idx].remainingBounces--;
+
+		if (glm::dot(pathSegments[idx].ray.direction, intersection.surfaceNormal) < 0) {
+			pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
+		}
 	}
 }
 
@@ -461,9 +484,9 @@ __global__ void ShadeEnvironment(
 			pathSegments[idx].color = sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
 		}
 		else {
-			pathSegments[idx].color = pathSegments[idx].color * 1.f;
+			pathSegments[idx].color = pathSegments[idx].color * .1f;
 		}
-		//	pathSegments[idx].color *= sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
+		//pathSegments[idx].color *= sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
 		pathSegments[idx].remainingBounces = 0;
 	}
 }
@@ -530,36 +553,6 @@ void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 	// 1D block for path tracing
 	const int blockSize1d = 128;
 
-	///////////////////////////////////////////////////////////////////////////
-
-	// Recap:
-	// * Initialize array of path rays (using rays that come out of the camera)
-	//   * You can pass the Camera object to that kernel.
-	//   * Each path ray must carry at minimum a (ray, color) pair,
-	//   * where color starts as the multiplicative identity, white = (1, 1, 1).
-	//   * This has already been done for you.
-	// * For each depth:
-	//   * Compute an intersection in the scene for each path ray.
-	//     A very naive version of this has been implemented for you, but feel
-	//     free to add more primitives and/or a better algorithm.
-	//     Currently, intersection distance is recorded as a parametric distance,
-	//     t, or a "distance along the ray." t = -1.0 indicates no intersection.
-	//     * Color is attenuated (multiplied) by reflections off of any object
-	//   * TODO: Stream compact away all of the terminated paths.
-	//     You may use either your implementation or `thrust::remove_if` or its
-	//     cousins.
-	//     * Note that you can't really use a 2D kernel launch any more - switch
-	//       to 1D.
-	//   * TODO: Shade the rays that intersected something or didn't bottom out.
-	//     That is, color the ray by performing a color computation according
-	//     to the shader, then generate a new ray to continue the ray path.
-	//     We recommend just updating the ray's PathSegment in place.
-	//     Note that this step may come before or after stream compaction,
-	//     since some shaders you write may also cause a path to terminate.
-	// * Finally, add this iteration's results to the image. This has been done
-	//   for you.
-
-	// TODO: perform one iteration of path tracing
 	generateRayFromCamera << <blocksPerGrid2d, blockSize2d >> > (cam, iter, traceDepth, dev_paths, settings.stochastic);
 	checkCUDAError("generate camera ray");
 
@@ -594,6 +587,19 @@ void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
 		depth++;
+
+		if (settings.drawNormals) {
+			ShadeNormal << <numblocksPathSegmentTracing, blockSize1d >> > (
+				iter,
+				alivePaths,
+				dev_intersections,
+				dev_paths,
+				dev_materials,
+				depth
+				);
+			continue;
+		}
+
 
 		// TODO:
 		// --- Shading Stage ---

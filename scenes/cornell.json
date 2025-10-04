@@ -26,7 +26,7 @@
   "Camera": {
     "RES": [ 800, 800 ],
     "FOVY": 45.0,
-    "ITERATIONS": 5000,
+    "ITERATIONS": 100,
     "DEPTH": 8,
     "FILE": "cornell",
     "EYE": [ 0.0, 5.0, 10.5 ],
@@ -83,5 +83,16 @@
       "ROTAT": [ 0.0, 0.0, 0.0 ],
       "SCALE": [ 3.0, 3.0, 3.0 ]
     }
-  ]
+  ],
+  "Gltf": {
+    "PATH": "C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf",
+    "MATERIAL": "diffuse_red",
+    "TRANS": [ 2.0, 0.0, 2.0 ],
+    "ROTAT": [ 0.0, 0.0, 0.0 ],
+    "SCALE": [ 0.04, 0.04, 0.04 ],
+    "FLIPNORMALS": 0
+  },
+  "EnvironmentMap": {
+    "PATH": "C:/Users/elias/Downloads/qwantani_moon_noon_puresky_4k.hdr"
+  }
 }

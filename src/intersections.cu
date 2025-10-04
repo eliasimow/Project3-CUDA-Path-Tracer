@@ -111,6 +111,10 @@ __host__ __device__ float triangleIntersectionTest(
 
 	outside = glm::dot(normal, r.direction) < FLT_EPSILON;
 
+	if (!outside) {
+		normal = glm::vec3(1, 0, 0);
+	}
+
 	return t;
 }
 

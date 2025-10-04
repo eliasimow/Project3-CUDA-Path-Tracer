@@ -28,82 +28,87 @@ void TheNoiser::init(int width, int height)
 	denoiserStateSize = sizes.stateSizeInBytes;
 	scratchSize = sizes.withoutOverlapScratchSizeInBytes;
 
-	cudaMalloc((void**)&dev_denoiserState, denoiserStateSize);
-	cudaMalloc((void**)&dev_scratch, scratchSize);
+	cudaMalloc(&dev_denoiserState, denoiserStateSize);
+	cudaMalloc(&dev_scratch, scratchSize);
 
 	size_t bufferSize = sizeof(glm::vec3) * (imgWidth * imgHeight);
 
-	cudaMalloc(reinterpret_cast<void**>(&dev_input), bufferSize);
-	cudaMalloc(reinterpret_cast<void**>(&dev_output), bufferSize);
-
+	cudaMalloc(&dev_input, bufferSize);
+	cudaMalloc(&dev_output, bufferSize);
+	cudaMalloc(&dev_normals, bufferSize);
 
 	// Setup denoiser
 	cudaStream_t stream;
 	cudaStreamCreate(&stream);
-	optixDenoiserSetup(denoiser, stream, imgWidth, imgHeight, dev_denoiserState, denoiserStateSize, dev_scratch, scratchSize);
+	optixDenoiserSetup(denoiser, stream, imgWidth, imgHeight, reinterpret_cast<CUdeviceptr>(dev_denoiserState), denoiserStateSize, reinterpret_cast<CUdeviceptr>(dev_scratch), scratchSize);
 }
 
-std::vector<glm::vec3> TheNoiser::denoise(std::vector<glm::vec3> pixels)
+std::vector<glm::vec3> TheNoiser::denoise(std::vector<glm::vec3> pixels, std::vector<glm::vec3> normals)
 {
 	size_t bufferSize = sizeof(glm::vec3) * (imgWidth * imgHeight);
-	cudaMemcpy(reinterpret_cast<void*>(dev_input), pixels.data(), bufferSize, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_input, pixels.data(), bufferSize, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_normals, normals.data(), bufferSize, cudaMemcpyHostToDevice);
 
 	cudaStream_t stream;
 	cudaStreamCreate(&stream);
 
-	// Prepare denoiser layer
 	OptixDenoiserLayer denoiserLayer = {};
-	denoiserLayer.input.data = dev_input; // if you store as CUDA array, convert to ptr
+	denoiserLayer.input.data = reinterpret_cast<CUdeviceptr>(dev_input);
 	denoiserLayer.input.width = imgWidth;
 	denoiserLayer.input.height = imgHeight;
-	denoiserLayer.input.rowStrideInBytes = imgWidth * sizeof(float4);
-	denoiserLayer.input.pixelStrideInBytes = sizeof(float4);
-	denoiserLayer.input.format = OPTIX_PIXEL_FORMAT_FLOAT4;
+	denoiserLayer.input.rowStrideInBytes = imgWidth * sizeof(float3);
+	denoiserLayer.input.pixelStrideInBytes = sizeof(float3);
+	denoiserLayer.input.format = OPTIX_PIXEL_FORMAT_FLOAT3;
 
-	denoiserLayer.output.data = dev_output;
+	denoiserLayer.output.data = reinterpret_cast<CUdeviceptr>(dev_output);
 	denoiserLayer.output.width = imgWidth;
 	denoiserLayer.output.height = imgHeight;
-	denoiserLayer.output.rowStrideInBytes = imgWidth * sizeof(float4);
-	denoiserLayer.output.pixelStrideInBytes = sizeof(float4);
-	denoiserLayer.output.format = OPTIX_PIXEL_FORMAT_FLOAT4;
+	denoiserLayer.output.rowStrideInBytes = imgWidth * sizeof(float3);
+	denoiserLayer.output.pixelStrideInBytes = sizeof(float3);
+	denoiserLayer.output.format = OPTIX_PIXEL_FORMAT_FLOAT3;
 
-	// Optional guide layers
-	// Denoiser parameters
 	OptixDenoiserParams denoiserParams = {};
-	denoiserParams.blendFactor = 1.0f;
+	denoiserParams.blendFactor = 0.f;
 
 	OptixDenoiserGuideLayer guides = {};
+	guides.normal.data = reinterpret_cast<CUdeviceptr>(dev_normals);
+	guides.normal.width = imgWidth;
+	guides.normal.height = imgHeight;
+	guides.normal.rowStrideInBytes = static_cast<unsigned int>(imgWidth * sizeof(glm::vec3));
+	guides.normal.pixelStrideInBytes = static_cast<unsigned int>(sizeof(glm::vec3));
+	guides.normal.format = OPTIX_PIXEL_FORMAT_FLOAT3;
 
 	// Invoke denoiser
 	optixDenoiserInvoke(
 		denoiser,
 		stream,
 		&denoiserParams,
-		dev_denoiserState,
+		reinterpret_cast<CUdeviceptr>(dev_denoiserState),
 		denoiserStateSize,
 		&guides,
 		&denoiserLayer,
 		1,
 		0,
 		0,
-		dev_scratch,
+		reinterpret_cast<CUdeviceptr>(dev_scratch),
 		scratchSize
 	);
 
 	cudaStreamSynchronize(stream);
 
 	std::vector<glm::vec3> denoisedPixels(pixels.size());
-	cudaMemcpy(denoisedPixels.data(), reinterpret_cast<void*>(dev_output), bufferSize, cudaMemcpyDeviceToHost);
+	cudaMemcpy(denoisedPixels.data(), dev_output, bufferSize, cudaMemcpyDeviceToHost);
 
 	return denoisedPixels;
 }
 
 void TheNoiser::free()
 {
-	if (dev_denoiserState) cudaFree(&dev_denoiserState);
-	if (dev_scratch) cudaFree(&dev_scratch);
+	if (dev_denoiserState) cudaFree(dev_denoiserState);
+	if (dev_scratch) cudaFree(dev_scratch);
 	if (denoiser) optixDenoiserDestroy(denoiser);
 	if (context) optixDeviceContextDestroy(context);
-	if (dev_input) cudaFree(&dev_input);
-	if (dev_output) cudaFree(&dev_output);
+	if (dev_input) cudaFree(dev_input);
+	if (dev_output) cudaFree(dev_output);
+	if (dev_normals) cudaFree(dev_normals);
 }

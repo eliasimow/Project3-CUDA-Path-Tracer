@@ -144,6 +144,8 @@ void Scene::loadFromJSON(const std::string& jsonName)
 		const auto& rotat = gltfJson["ROTAT"];
 		const auto& scale = gltfJson["SCALE"];
 
+		flipGltfNormals = gltfJson["FLIPNORMALS"] > 0.f;
+
 		glm::mat4 T = glm::translate(glm::mat4(1.0f), glm::vec3(trans[0], trans[1], trans[2]));
 		glm::mat4 R = glm::mat4_cast(glm::quat(glm::vec3(rotat[0], rotat[1], rotat[2])));
 		glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(scale[0], scale[1], scale[2]));
@@ -153,7 +155,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
 		//"C:\Users\elias\Downloads\animated_dance_teacher_-_bellydance.zip"
 		//"C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf"
 		gltfData = parser.LoadFromFile(path);
-		BufferMesh(gltfData.meshes);
+		BufferMesh(gltfData.meshes, flipGltfNormals);
 		BuildBVH();
 
 		Geom meshGeom;
@@ -180,7 +182,7 @@ void Scene::BuildBVH()
 	triangles = reordered;
 }
 
-void Scene::BufferMesh(std::vector<Mesh>& meshes) {
+void Scene::BufferMesh(std::vector<Mesh>& meshes, bool flipNormals) {
 	for (Mesh& m : meshes) {
 
 		//Material mat;
@@ -197,12 +199,14 @@ void Scene::BufferMesh(std::vector<Mesh>& meshes) {
 
 		int indexOffset = vertexData.size();
 		m.vertexOffset = indexOffset;
+		glm::mat4 inverseTranspMat = glm::inverse(glm::transpose(gltfFrame));
+
 		for (int i = 0; i < m.positions.size(); ++i) {
 			glm::vec4 transformedPosition = gltfFrame * glm::vec4(m.positions[i].x, m.positions[i].y, m.positions[i].z, 1);
 			glm::vec3 position = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
-			glm::vec3 normal = m.normals[i];
+			glm::vec3 normal = flipNormals ? m.normals[i] * -1.f : m.normals[i]; // inverseTranspMat* glm::vec4(m.normals[i], 0.0f);
 
-			vertexData.push_back(VertexData(position, normal));
+			vertexData.push_back(VertexData(position, glm::vec3(normal.x, normal.y, normal.z)));
 		}
 
 		for (int i = 0; i < m.indices.size() - 2; i += 3) {
@@ -237,10 +241,12 @@ void Scene::IterateFrame()
 	for (Mesh& mesh : gltfData.meshes) {
 		animator.UpdateVerticesAndNormals(*this, mesh);
 		for (int i = 0; i < mesh.positions.size(); ++i) {
-			glm::vec4 transformedPosition = gltfFrame * glm::vec4(mesh.positions[i].x, mesh.positions[i].y, mesh.positions[i].z, 0);
+			glm::vec4 transformedPosition = gltfFrame * glm::vec4(mesh.positions[i].x, mesh.positions[i].y, mesh.positions[i].z, 1);
 			glm::vec3 position = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
 			glm::vec3 normal = glm::vec3(mesh.normals[i].x, mesh.normals[i].y, mesh.normals[i].z);
-
+			if (flipGltfNormals) {
+				normal *= -1.f;
+			}
 
 			vertexData[i + mesh.vertexOffset] = VertexData(position, normal);
 		}

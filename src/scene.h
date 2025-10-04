@@ -10,41 +10,42 @@
 class Scene
 {
 private:
-    void loadFromJSON(const std::string& jsonName);
+	void loadFromJSON(const std::string& jsonName);
 public:
-    Scene(std::string filename);
+	Scene(std::string filename);
 
-    std::vector<Geom> geoms;
-    std::vector<Material> materials;
+	std::vector<Geom> geoms;
+	std::vector<Material> materials;
 
-    //std::vector<unsigned int> vertIdx;
-    std::vector<Triangle> triangles;
-    
-    //std::vector<glm::vec3> vertPos;
-    std::vector<VertexData> vertexData;
+	//std::vector<unsigned int> vertIdx;
+	std::vector<Triangle> triangles;
 
-    std::vector<glm::vec4> environmentTexture;
-    int environmentWidth = 0;
-    int environmentHeight = 0;
-    
-    int currentFrame = -1;
-    int totalFrames;
+	//std::vector<glm::vec3> vertPos;
+	std::vector<VertexData> vertexData;
 
-    static const int fps = 24;
+	std::vector<glm::vec4> environmentTexture;
+	int environmentWidth = 0;
+	int environmentHeight = 0;
+
+	int currentFrame = -1;
+	int totalFrames;
+
+	static const int fps = 24;
+	bool flipGltfNormals = false;
 
 
-    std::unique_ptr<BVH> bvh;
+	std::unique_ptr<BVH> bvh;
 
-    FullGltfData gltfData;
-    glm::mat4 gltfFrame;
+	FullGltfData gltfData;
+	glm::mat4 gltfFrame;
 
-    RenderState state;
+	RenderState state;
 
-    void BuildBVH();
+	void BuildBVH();
 
-    void BufferMesh(std::vector<Mesh>& meshes);
+	void BufferMesh(std::vector<Mesh>& meshes, bool flipNormals);
 
-    void IterateFrame();
+	void IterateFrame();
 
-    
+
 };

@@ -234,10 +234,14 @@ struct Mesh {
 };
 
 struct SceneSettings {
+	bool drawNormals = false;
 	bool stochastic = true;
 	bool materialSort = true;
 	bool streamCompact = true;
 	bool bvh = true;
+	bool animate = false;
+	bool denoise = true;
+	bool freezeFrame = false;
 };
 
 

@@ -283,6 +283,10 @@ void RenderImGui()
 	ImGui::Checkbox("Material Sort", &settings.materialSort);      // Edit bools storing our window open/close state
 	ImGui::Checkbox("Stream Compaction", &settings.streamCompact);      // Edit bools storing our window open/close state
 	ImGui::Checkbox("BVH", &settings.bvh);      // Edit bools storing our window open/close state
+	ImGui::Checkbox("Draw Normals", &settings.drawNormals);      // Edit bools storing our window open/close state
+	ImGui::Checkbox("Animate", &settings.animate);      // Edit bools storing our window open/close state
+	ImGui::Checkbox("Denoise Final Render", &settings.denoise);      // Edit bools storing our window open/close state
+
 
 	//ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
 	//ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
@@ -412,35 +416,50 @@ int main(int argc, char** argv)
 }
 
 
-void saveImage()
+void saveImage(int frame = 0)
 {
+	settings.freezeFrame = true;
 	float samples = iteration;
 	// output image file
-	Image img(width, height);
+	if (!settings.denoise) {
+		Image img(width, height);
 
-	for (int x = 0; x < width; x++)
-	{
-		for (int y = 0; y < height; y++)
+
+		for (int x = 0; x < width; x++)
 		{
-			int index = x + (y * width);
-			glm::vec3 pix = renderState->image[index];
-			img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
+			for (int y = 0; y < height; y++)
+			{
+				int index = x + (y * width);
+				glm::vec3 pix = renderState->image[index];
+				img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
+			}
 		}
+		std::string filename = "NOISY" + renderState->imageName + "_" + std::to_string(frame) + "_";
+		std::ostringstream ss;
+		ss << filename << "." << startTimeString << "." << samples << "samp";
+		filename = ss.str();
+
+		// CHECKITOUT
+		img.savePNG(filename);
+		return;
 	}
 
-	std::string filename = renderState->imageName;
-	std::ostringstream ss;
-	ss << filename << "." << startTimeString << "." << samples << "samp";
-	filename = ss.str();
+	std::vector<glm::vec3> defaultPixels = renderState->image;
+	settings.drawNormals = true;
+	std::fill(renderState->image.begin(), renderState->image.end(), glm::vec3());
 
-	// CHECKITOUT
-	img.savePNG(filename);
+	camchanged = true;
+	runCuda();
+
+	std::vector<glm::vec3> normalPixels = renderState->image;
+	settings.drawNormals = false;
 
 	// output image file
 	Image denoisedImage(width, height);
 	TheNoiser denoiser;
 	denoiser.init(width, height);
-	std::vector<glm::vec3> denoisedPixels = denoiser.denoise(renderState->image);
+	std::vector<glm::vec3> denoisedPixels = denoiser.denoise(defaultPixels, normalPixels);
+
 	denoiser.free();
 	for (int x = 0; x < width; x++)
 	{
@@ -452,14 +471,17 @@ void saveImage()
 		}
 	}
 
-	std::string denoisedFileName = renderState->imageName;
+	std::string denoisedFileName = renderState->imageName + "_" + std::to_string(frame) + "_";
 	std::ostringstream denoisedSS;
-	denoisedSS << denoisedFileName << "." << startTimeString << "." << samples << "samp|DENOISED";
+	denoisedSS << denoisedFileName << "." << startTimeString << "." << samples << "samp";
 	denoisedFileName = denoisedSS.str();
 
 	// CHECKITOUT
 	denoisedImage.savePNG(denoisedFileName);
 
+	std::fill(renderState->image.begin(), renderState->image.end(), glm::vec3());
+	camchanged = true;
+	settings.freezeFrame = false;
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
@@ -485,7 +507,7 @@ void runCuda()
 		cam.position = cameraPosition;
 		camchanged = false;
 
-		if (scene->currentFrame > 0) {
+		if (scene->currentFrame > 0 && settings.animate && !settings.freezeFrame) {
 			scene->currentFrame = -1;
 			scene->IterateFrame();
 		}
@@ -515,17 +537,24 @@ void runCuda()
 	}
 	else
 	{
-		scene->IterateFrame();
-		if (scene->currentFrame > scene->totalFrames) {
-			//saveImage();
+		if (settings.animate) {
+			saveImage();
+			scene->IterateFrame();
+
+		}
+
+		if (scene->currentFrame > scene->totalFrames || !settings.animate) {
+			saveImage();
 			pathtraceFree();
 			cudaDeviceReset();
 			exit(EXIT_SUCCESS);
 		}
 		else {
 			//jobs not done bud
-			rewritePositions(scene);
-			iteration = 0;
+			if (settings.animate) {
+				rewritePositions(scene);
+				iteration = 0;
+			}
 		}
 	}
 }
