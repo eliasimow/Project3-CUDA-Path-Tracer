@@ -10,7 +10,7 @@ static glm::vec4 CalculateInterpolationValue(InterpolationType type, glm::vec4 p
 	const glm::vec4& outTangent0 = glm::vec4(),
 	const glm::vec4& inTangent1 = glm::vec4(),
 	const glm::vec4& outTangent1 = glm::vec4()
-	) {
+) {
 
 	float dt = endTime - startTime;
 	float t = (currentTime - startTime) / (dt);
@@ -27,7 +27,7 @@ static glm::vec4 CalculateInterpolationValue(InterpolationType type, glm::vec4 p
 
 	switch (type) {
 	case ROTATIONLINEAR:
-		rot = glm::slerp(glm::quat(pre.w,pre.x,pre.y,pre.z), glm::quat(post.w, post.x, post.y, post.z), t);
+		rot = glm::slerp(glm::quat(pre.w, pre.x, pre.y, pre.z), glm::quat(post.w, post.x, post.y, post.z), t);
 		return glm::vec4(rot.x, rot.y, rot.z, rot.w);
 		break;
 	case LINEAR:
@@ -89,7 +89,7 @@ void AnimationParser::UpdateLocalMatrices(Scene& scene, float currentTime) {
 				Node& currentNode = gltfData.nodes[channel.targetNode];
 
 				//okay, update the node current value now?
-				switch (channel.path){
+				switch (channel.path) {
 				case POSITION:
 					currentNode.translation = glm::vec3(interpolated.x, interpolated.y, interpolated.z);
 					break;
@@ -100,9 +100,9 @@ void AnimationParser::UpdateLocalMatrices(Scene& scene, float currentTime) {
 					currentNode.scale = glm::vec3(interpolated.x, interpolated.y, interpolated.z);
 					break;
 				default:
-					break;			
+					break;
 				}
-		
+
 				currentNode.localMatrix =
 					glm::translate(glm::mat4(1.0f), currentNode.translation) *
 					glm::mat4_cast(currentNode.rotation) *
@@ -112,7 +112,7 @@ void AnimationParser::UpdateLocalMatrices(Scene& scene, float currentTime) {
 	}
 }
 
-void AnimationParser::UpdateGlobalMatrices(Scene &scene, int nodeIndex){
+void AnimationParser::UpdateGlobalMatrices(Scene& scene, int nodeIndex) {
 	Node& node = scene.gltfData.nodes[nodeIndex];
 	if (node.parent == -1) {
 		node.globalMatrix = node.localMatrix;
@@ -129,12 +129,12 @@ void AnimationParser::UpdateGlobalMatrices(Scene &scene, int nodeIndex){
 
 void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 {
-	for (int i = 0; i < mesh.positions.size() ; ++i) {
+	for (int i = 0; i < mesh.positions.size(); ++i) {
 		glm::vec3 bindPos = mesh.bindVertPos[i];
 		glm::vec3 bindNorm = mesh.bindNormals[i];
 		glm::vec4 newPos = glm::vec4(0.0f);
 		glm::vec4 newNorm = glm::vec4(0.0f);
-	
+
 		if (i >= mesh.jointIndices.size() || i >= mesh.weights.size()) {
 			continue;
 		}
@@ -142,7 +142,7 @@ void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 		glm::ivec4 joints = mesh.jointIndices[i];
 		glm::vec4 weights = mesh.weights[i];
 		Skin skin = mesh.skin;
-	
+
 		for (int j = 0; j < 4; ++j) {
 			int jointIndex = joints[j];
 			float weight = weights[j];
@@ -154,8 +154,8 @@ void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 				newNorm += weight * glm::vec4(normalMatrix * bindNorm, 0.0f);
 			}
 		}
-	
+
 		mesh.positions[i] = glm::vec3(newPos.x, newPos.y, newPos.z);
-		mesh.normals[i] = glm::normalize(glm::vec3(newNorm.x, newNorm.y, newNorm.z));
+		mesh.normals[i] = scene.flipGltfNormals ? -1.f * glm::normalize(glm::vec3(newNorm.x, newNorm.y, newNorm.z)) : glm::normalize(glm::vec3(newNorm.x, newNorm.y, newNorm.z));
 	}
 }
