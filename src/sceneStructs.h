@@ -19,6 +19,7 @@ enum GeomType
 	SPHERE,
 	CUBE,
 	TRIANGLES,
+	PLANE,
 	MESH
 };
 
@@ -74,6 +75,7 @@ struct Material
 	float hasRefractive;
 	float indexOfRefraction = 0.f;
 	float emittance;
+	float roughness = 0.f;
 };
 
 struct Camera
@@ -131,6 +133,8 @@ struct MaterialEnumExtractor {
 		return intersection.materialId == -1 ? ENVIRONMENT : materials[intersection.materialId].materialType; // or whatever your enum field is called
 	}
 };
+
+
 
 
 struct BVHNode

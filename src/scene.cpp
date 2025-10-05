@@ -65,6 +65,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
 			const auto& col = p["RGB"];
 			newMaterial.color = glm::vec3(col[0], col[1], col[2]);
 			newMaterial.materialType = SPECULAR;
+			newMaterial.roughness = p["ROUGHNESS"];
 			newMaterial.hasReflective = true;
 		}
 		else if (p["TYPE"] == "Reflective")
@@ -86,6 +87,9 @@ void Scene::loadFromJSON(const std::string& jsonName)
 		if (type == "cube")
 		{
 			newGeom.type = CUBE;
+		}
+		else if (type == "plane") {
+			newGeom.type = PLANE;
 		}
 		else
 		{

@@ -295,6 +295,10 @@ __global__ void computeIntersections(
 			{
 				t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 			}
+			else if (geom.type == PLANE)
+			{
+				t = planeIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+			}
 			else if (geom.type == TRIANGLES)
 			{
 				t = intersectBVH(pathSegment.ray, bvhNodes, triangles, vertexData, tmp_intersect, tmp_normal, outside, runBVH);
@@ -723,6 +727,16 @@ void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 				depth,
 				dev_EnvironmentTexture
 				);
+
+			if (settings.streamCompact) {
+				PathSegment* remainingEnd = thrust::partition(
+					thrust::device,
+					dev_paths,
+					dev_paths + alivePaths,
+					HasRemainingBounces()
+				);
+				alivePaths = static_cast<int>(remainingEnd - dev_paths);
+			}
 
 			//if (settings.streamCompact) {
 			//	if (host_start_indices[ENVIRONMENT] >= 0 && settings.streamCompact) {

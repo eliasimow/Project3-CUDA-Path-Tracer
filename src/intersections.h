@@ -86,3 +86,11 @@ __host__ __device__ float intersectBVH(
 
 __device__ float2 dirToUV(const glm::vec3& d);
 __device__ glm::vec3 sampleEnvRadiance(cudaTextureObject_t envTex, const glm::vec3& dir);
+
+__host__ __device__ float planeIntersectionTest(
+	Geom plane,
+	Ray r,
+	glm::vec3& intersectionPoint,
+	glm::vec3& outNormal,
+	bool& outside
+);

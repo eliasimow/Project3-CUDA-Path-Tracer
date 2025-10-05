@@ -56,6 +56,43 @@ __host__ __device__ float boxIntersectionTest(
 	return -1;
 }
 
+__host__ __device__ float planeIntersectionTest(
+	Geom plane,
+	Ray r,
+	glm::vec3& intersectionPoint,
+	glm::vec3& outNormal,
+	bool& outside
+) {
+	Ray q;
+	q.origin = glm::vec3(plane.inverseTransform * glm::vec4(r.origin, 1.0f));
+	q.direction = glm::normalize(glm::vec3(plane.inverseTransform * glm::vec4(r.direction, 0.0f)));
+
+	glm::vec3 planeNormalOS = glm::vec3(0.0f, 0.0f, 1.0f);
+	float denom = glm::dot(q.direction, planeNormalOS);
+
+	if (glm::abs(denom) < FLT_MIN) {
+		// Ray is parallel to plane
+		return -1.0f;
+	}
+
+	float t = glm::dot((glm::vec3(0.0f) - q.origin), planeNormalOS) / denom;
+
+	if (t < 0.0f) {
+		// Plane is behind the ray
+		return -1.0f;
+	}
+
+	outside = denom < 0.0f;
+
+	intersectionPoint = glm::vec3(plane.transform * glm::vec4(getPointOnRay(q, t), 1.0f));
+
+	outNormal = glm::normalize(glm::vec3(plane.invTranspose * glm::vec4(planeNormalOS, 0.0f)));
+	if (!outside) outNormal = -outNormal;
+
+	return glm::length(r.origin - intersectionPoint);
+}
+
+
 //following:
 //https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
 __host__ __device__ float triangleIntersectionTest(
