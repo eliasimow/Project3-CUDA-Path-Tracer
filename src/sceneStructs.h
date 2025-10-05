@@ -72,7 +72,7 @@ struct Material
 	} specular;
 	float hasReflective;
 	float hasRefractive;
-	float indexOfRefraction;
+	float indexOfRefraction = 0.f;
 	float emittance;
 };
 

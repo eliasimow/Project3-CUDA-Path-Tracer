@@ -13,13 +13,13 @@
  */
 __host__ __device__ inline unsigned int utilhash(unsigned int a)
 {
-    a = (a + 0x7ed55d16) + (a << 12);
-    a = (a ^ 0xc761c23c) ^ (a >> 19);
-    a = (a + 0x165667b1) + (a << 5);
-    a = (a + 0xd3a2646c) ^ (a << 9);
-    a = (a + 0xfd7046c5) + (a << 3);
-    a = (a ^ 0xb55a4f09) ^ (a >> 16);
-    return a;
+	a = (a + 0x7ed55d16) + (a << 12);
+	a = (a ^ 0xc761c23c) ^ (a >> 19);
+	a = (a + 0x165667b1) + (a << 5);
+	a = (a + 0xd3a2646c) ^ (a << 9);
+	a = (a + 0xfd7046c5) + (a << 3);
+	a = (a ^ 0xb55a4f09) ^ (a >> 16);
+	return a;
 }
 
 // CHECKITOUT
@@ -29,7 +29,7 @@ __host__ __device__ inline unsigned int utilhash(unsigned int a)
  */
 __host__ __device__ inline glm::vec3 getPointOnRay(Ray r, float t)
 {
-    return r.origin + (t - .0001f) * glm::normalize(r.direction);
+	return r.origin + (t - .0001f) * glm::normalize(r.direction);
 }
 
 /**
@@ -37,7 +37,7 @@ __host__ __device__ inline glm::vec3 getPointOnRay(Ray r, float t)
  */
 __host__ __device__ inline glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v)
 {
-    return glm::vec3(m * v);
+	return glm::vec3(m * v);
 }
 
 // CHECKITOUT
@@ -51,11 +51,11 @@ __host__ __device__ inline glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v)
  * @return                   Ray parameter `t` value. -1 if no intersection.
  */
 __host__ __device__ float boxIntersectionTest(
-    Geom box,
-    Ray r,
-    glm::vec3& intersectionPoint,
-    glm::vec3& normal,
-    bool& outside);
+	Geom box,
+	Ray r,
+	glm::vec3& intersectionPoint,
+	glm::vec3& normal,
+	bool& outside);
 
 // CHECKITOUT
 /**
@@ -68,20 +68,21 @@ __host__ __device__ float boxIntersectionTest(
  * @return                   Ray parameter `t` value. -1 if no intersection.
  */
 __host__ __device__ float sphereIntersectionTest(
-    Geom sphere,
-    Ray r,
-    glm::vec3& intersectionPoint,
-    glm::vec3& normal,
-    bool& outside);
+	Geom sphere,
+	Ray r,
+	glm::vec3& intersectionPoint,
+	glm::vec3& normal,
+	bool& outside);
 
 __host__ __device__ float intersectBVH(
-    Ray ray, 
-    const BVHNode* __restrict__  nodes,
-    const Triangle* __restrict__ triangles,
-    const VertexData* __restrict__ vertexData,
-    glm::vec3& intersectionPoint,
-    glm::vec3& normal,
-    bool& outside);
+	Ray ray,
+	const BVHNode* __restrict__  nodes,
+	const Triangle* __restrict__ triangles,
+	const VertexData* __restrict__ vertexData,
+	glm::vec3& intersectionPoint,
+	glm::vec3& normal,
+	bool& outside,
+	bool runBVH);
 
- __device__ float2 dirToUV(const glm::vec3& d);
- __device__ glm::vec3 sampleEnvRadiance(cudaTextureObject_t envTex, const glm::vec3& dir);
+__device__ float2 dirToUV(const glm::vec3& d);
+__device__ glm::vec3 sampleEnvRadiance(cudaTextureObject_t envTex, const glm::vec3& dir);

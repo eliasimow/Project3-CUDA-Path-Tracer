@@ -51,7 +51,7 @@ int width;
 int height;
 
 SceneSettings settings;
-
+std::vector<glm::vec3> previousNoiseOutput;
 
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
@@ -457,16 +457,15 @@ void saveImage(int frame = 0)
 	// output image file
 	Image denoisedImage(width, height);
 	TheNoiser denoiser;
-	denoiser.init(width, height);
-	std::vector<glm::vec3> denoisedPixels = denoiser.denoise(defaultPixels, normalPixels);
-
+	denoiser.init(width, height, previousNoiseOutput);
+	previousNoiseOutput = denoiser.denoise(defaultPixels, normalPixels);
 	denoiser.free();
 	for (int x = 0; x < width; x++)
 	{
 		for (int y = 0; y < height; y++)
 		{
 			int index = x + (y * width);
-			glm::vec3 pix = denoisedPixels[index];
+			glm::vec3 pix = previousNoiseOutput[index];
 			denoisedImage.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
 		}
 	}
@@ -481,6 +480,7 @@ void saveImage(int frame = 0)
 
 	std::fill(renderState->image.begin(), renderState->image.end(), glm::vec3());
 	camchanged = true;
+	runCuda();
 	settings.freezeFrame = false;
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
@@ -538,7 +538,7 @@ void runCuda()
 	else
 	{
 		if (settings.animate) {
-			saveImage();
+			saveImage(scene->currentFrame);
 			scene->IterateFrame();
 
 		}

@@ -15,6 +15,7 @@
 #include "interactions.h"
 #include "BrdsfHelperService.cuh"
 #include "BVHNode.cuh"
+#include "Materials.cuh"
 
 #define ERRORCHECK 1
 
@@ -41,13 +42,6 @@ void checkCUDAErrorFn(const char* msg, const char* file, int line)
 #endif // _WIN32
 	exit(EXIT_FAILURE);
 #endif // ERRORCHECK
-}
-
-__host__ __device__
-thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth)
-{
-	int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
-	return thrust::default_random_engine(h);
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
@@ -260,7 +254,9 @@ __global__ void computeIntersections(
 	Triangle* triangles,
 	int geoms_size,
 	VertexData* vertexData,
-	ShadeableIntersection* intersections)
+	ShadeableIntersection* intersections,
+	bool runBVH
+)
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -301,8 +297,7 @@ __global__ void computeIntersections(
 			}
 			else if (geom.type == TRIANGLES)
 			{
-
-				t = intersectBVH(pathSegment.ray, bvhNodes, triangles, vertexData, tmp_intersect, tmp_normal, outside);
+				t = intersectBVH(pathSegment.ray, bvhNodes, triangles, vertexData, tmp_intersect, tmp_normal, outside, runBVH);
 			}
 			if (t > 0.0f && t_min > t)
 			{
@@ -339,33 +334,31 @@ __global__ void ShadeDiffuse(
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
 	{
-		ShadeableIntersection intersection = shadeableIntersections[idx];
-		// Set up the RNG
-		// LOOK: this is how you use thrust's RNG! Please look at
-		// makeSeededRandomEngine as well.
-		thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, bounceCount);
-		thrust::uniform_real_distribution<float> u01(0, 1);
-
-		Material material = materials[intersection.materialId];
-		glm::vec3 materialColor = material.color;
-		glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
-
-		pathSegments[idx].ray.direction = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
-
-		float lightTerm = glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction);
-
-		pathSegments[idx].color *= (materialColor * lightTerm);
-
-		pathSegments[idx].ray.origin = newOrigin;
-
-		if (glm::dot(pathSegments[idx].ray.direction, intersection.surfaceNormal) < 0) {
-			pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
-		}
-
-		//pathSegments[idx].color = (glm::vec3(1., 1., 1.) + intersection.surfaceNormal) / 2.f;
-		//pathSegments[idx].remainingBounces = 0;
+		const ShadeableIntersection& intersection = shadeableIntersections[idx];
+		PathSegment& path = pathSegments[idx];
+		const Material& mat = materials[intersection.materialId];
+		diffuse(path, intersection, mat, iter, idx, bounceCount);
 	}
 }
+
+__global__ void ShadeRefraction(
+	int iter,
+	int num_paths,
+	ShadeableIntersection* shadeableIntersections,
+	PathSegment* pathSegments,
+	Material* materials,
+	int bounceCount)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
+	{
+		const ShadeableIntersection& intersection = shadeableIntersections[idx];
+		PathSegment& path = pathSegments[idx];
+		const Material& mat = materials[intersection.materialId];
+		refract(path, intersection, mat, iter, idx, bounceCount);
+	}
+}
+
 
 __global__ void ShadeNormal(
 	int iter,
@@ -385,21 +378,6 @@ __global__ void ShadeNormal(
 		}
 		else {
 			glm::vec3 test = (glm::vec3(1.f) + intersection.surfaceNormal) / 2.f;
-
-			//if (test.x > test.y && test.x > test.z) {
-			//	pathSegments[idx].color = glm::normalize(glm::vec3(test.x, 0, 0));
-			//}
-			//else if (test.y > test.x && test.y > test.z) {
-			//	pathSegments[idx].color = glm::normalize(glm::vec3(0, test.y, 0));
-
-			//}
-			//else if (test.z > test.x && test.z > test.y) {
-			//	pathSegments[idx].color = glm::normalize(glm::vec3(0, 0, test.z));
-			//}
-			//else {
-			//	pathSegments[idx].color = test;
-
-			//}
 			pathSegments[idx].color = test;
 		}
 		pathSegments[idx].remainingBounces = 0;
@@ -417,31 +395,55 @@ __global__ void ShadeSpecular(
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
 	{
+		const ShadeableIntersection& intersection = shadeableIntersections[idx];
+		PathSegment& path = pathSegments[idx];
+		const Material& mat = materials[intersection.materialId];
+		specular(path, intersection, mat, iter, idx, bounceCount);
+	}
+}
 
-		ShadeableIntersection intersection = shadeableIntersections[idx];
-		// Set up the RNG
-		// LOOK: this is how you use thrust's RNG! Please look at
-		// makeSeededRandomEngine as well.
-		thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, bounceCount);
+__global__ void ShadeAll(
+	int iter,
+	int num_paths,
+	ShadeableIntersection* shadeableIntersections,
+	PathSegment* pathSegments,
+	Material* materials,
+	int depth,
+	cudaTextureObject_t environmentTexture
+) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
+	{
+		const ShadeableIntersection& intersection = shadeableIntersections[idx];
+		PathSegment& path = pathSegments[idx];
+		const Material& mat = materials[intersection.materialId];
 		thrust::uniform_real_distribution<float> u01(0, 1);
 
-		Material material = materials[intersection.materialId];
-		glm::vec3 materialColor = material.color;
-		glm::vec3 newOrigin = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t + EPSILON * (intersection.surfaceNormal);
+		if (intersection.t < 0) {
+			environment(path, 0, idx, depth, environmentTexture);
+			return;
+		}
 
-		pathSegments[idx].ray.direction = pathSegments[idx].ray.direction - 2.f * glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction) * intersection.surfaceNormal;
-
-		float lightTerm = glm::dot(intersection.surfaceNormal, pathSegments[idx].ray.direction);
-
-		pathSegments[idx].color *= (materialColor * lightTerm);
-
-		pathSegments[idx].ray.origin = newOrigin;
-
-		if (glm::dot(pathSegments[idx].ray.direction, intersection.surfaceNormal) < 0) {
-			pathSegments[idx].ray.direction = pathSegments[idx].ray.direction * -1.f;
+		switch (mat.materialType)
+		{
+		case DIFFUSE:
+			diffuse(path, intersection, mat, iter, idx, depth);
+			return;
+		case REFRACTION:
+			refract(path, intersection, mat, iter, idx, depth);
+			return;
+		case SPECULAR:
+			specular(path, intersection, mat, iter, idx, depth);
+			return;
+		case EMISSION:
+			emission(path, intersection, mat, iter, idx, depth);
+			return;
+		default:
+			break;
 		}
 	}
 }
+
 
 
 __global__ void ShadeEmitting(
@@ -455,19 +457,10 @@ __global__ void ShadeEmitting(
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
 	{
-		ShadeableIntersection intersection = shadeableIntersections[idx];
-		// Set up the RNG
-		// LOOK: this is how you use thrust's RNG! Please look at
-		// makeSeededRandomEngine as well.
-		thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, bounceCount);
-		thrust::uniform_real_distribution<float> u01(0, 1);
-
-		Material material = materials[intersection.materialId];
-		glm::vec3 materialColor = material.color;
-
-		pathSegments[idx].color *= (materialColor * material.emittance);
-		pathSegments[idx].remainingBounces = 0;
-		return;
+		const ShadeableIntersection& intersection = shadeableIntersections[idx];
+		PathSegment& path = pathSegments[idx];
+		const Material& mat = materials[intersection.materialId];
+		emission(path, intersection, mat, iter, idx, bounceCount);
 	}
 }
 
@@ -479,15 +472,10 @@ __global__ void ShadeEnvironment(
 	cudaTextureObject_t environmentTexture)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0) {
-		if (depth == 1) {
-			pathSegments[idx].color = sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
-		}
-		else {
-			pathSegments[idx].color = pathSegments[idx].color * .1f;
-		}
-		//pathSegments[idx].color *= sampleEnvRadiance(environmentTexture, pathSegments[idx].ray.direction);
-		pathSegments[idx].remainingBounces = 0;
+	if (idx >= 0 && idx < num_paths && pathSegments[idx].remainingBounces > 0)
+	{
+		PathSegment& path = pathSegments[idx];
+		environment(path, 0, idx, depth, environmentTexture);
 	}
 }
 
@@ -567,9 +555,11 @@ void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 	while (depth < traceDepth && alivePaths > 0)
 	{
 		// clean shading chunks
-		cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
-		cudaMemset(dev_materialTypeEnd, -1, COUNT * sizeof(int));
-		cudaMemset(dev_materialTypeStart, -1, COUNT * sizeof(int));
+		if (settings.materialSort) {
+			cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
+			cudaMemset(dev_materialTypeEnd, -1, COUNT * sizeof(int));
+			cudaMemset(dev_materialTypeStart, -1, COUNT * sizeof(int));
+		}
 
 		// tracing
 		dim3 numblocksPathSegmentTracing = (alivePaths + blockSize1d - 1) / blockSize1d;
@@ -582,7 +572,8 @@ void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 			dev_triangles,
 			hst_scene->geoms.size(),
 			dev_vertData,
-			dev_intersections
+			dev_intersections,
+			settings.bvh
 			);
 		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
@@ -613,105 +604,131 @@ void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 
 		//PathSegment* mid = thrust::partition(dev_paths, dev_paths + num_paths, HasRemainingBounces());
 		//num_paths = static_cast<int>(mid - dev_paths);
+		if (settings.materialSort) {
+			thrust::device_ptr<int> materialEnums(dev_materialType);
+			thrust::transform(dev_intersections, dev_intersections + alivePaths, materialEnums,
+				MaterialEnumExtractor(dev_materials));
 
-		thrust::device_ptr<int> materialEnums(dev_materialType);
-		thrust::transform(dev_intersections, dev_intersections + alivePaths, materialEnums,
-			MaterialEnumExtractor(dev_materials));
+			// Sort both arrays by material enum
+			thrust::sort_by_key(materialEnums, materialEnums + alivePaths,
+				thrust::make_zip_iterator(thrust::make_tuple(dev_paths, dev_intersections)));
 
-		// Sort both arrays by material enum
-		thrust::sort_by_key(materialEnums, materialEnums + alivePaths,
-			thrust::make_zip_iterator(thrust::make_tuple(dev_paths, dev_intersections)));
+			materialIdentifyCellStartEnd << < numblocksPathSegmentTracing, blockSize1d >> >
+				(
+					alivePaths,
+					dev_materialType,
+					dev_materialTypeStart,
+					dev_materialTypeEnd
+					);
 
-		materialIdentifyCellStartEnd << < numblocksPathSegmentTracing, blockSize1d >> >
-			(
-				alivePaths,
-				dev_materialType,
-				dev_materialTypeStart,
-				dev_materialTypeEnd
-				);
+			std::vector<int> host_start_indices(COUNT);
+			std::vector<int> host_end_indices(COUNT);
 
-		std::vector<int> host_start_indices(COUNT);
-		std::vector<int> host_end_indices(COUNT);
+			cudaMemcpy(host_start_indices.data(), dev_materialTypeStart,
+				COUNT * sizeof(int), cudaMemcpyDeviceToHost);
+			cudaMemcpy(host_end_indices.data(), dev_materialTypeEnd,
+				COUNT * sizeof(int), cudaMemcpyDeviceToHost);
 
-		cudaMemcpy(host_start_indices.data(), dev_materialTypeStart,
-			COUNT * sizeof(int), cudaMemcpyDeviceToHost);
-		cudaMemcpy(host_end_indices.data(), dev_materialTypeEnd,
-			COUNT * sizeof(int), cudaMemcpyDeviceToHost);
 
-		//for (int i = 0; i < COUNT; ++i) {
-		//    std::printf("\n%d : %d, %d", i, host_start_indices[i], host_end_indices[i]);
-		//}
 
-		for (int i = 0; i < COUNT; ++i) {
-			MaterialType materialType = MaterialType(i);
-			int start = host_start_indices[i];
-			int end = host_end_indices[i];
-			int count = end - start;
+			for (int i = 0; i < COUNT; ++i) {
+				MaterialType materialType = MaterialType(i);
+				int start = host_start_indices[i];
+				int end = host_end_indices[i];
+				int count = end - start;
 
-			numblocksPathSegmentTracing = (count + blockSize1d - 1) / blockSize1d;
+				numblocksPathSegmentTracing = (count + blockSize1d - 1) / blockSize1d;
 
-			if (start >= 0) {
-				//std::printf("\nthis is %d start %d end %d", i, start, end);
+				if (start >= 0) {
+					//std::printf("\nthis is %d start %d end %d", i, start, end);
 
-				switch (materialType)
-				{
-				case DIFFUSE:
-					ShadeDiffuse << <numblocksPathSegmentTracing, blockSize1d >> > (
-						iter,
-						count,
-						dev_intersections + start,
-						dev_paths + start,
-						dev_materials,
-						depth
-						);
+					switch (materialType)
+					{
+					case DIFFUSE:
+						ShadeDiffuse << <numblocksPathSegmentTracing, blockSize1d >> > (
+							iter,
+							count,
+							dev_intersections + start,
+							dev_paths + start,
+							dev_materials,
+							depth
+							);
 
-					checkCUDAError("post pbr write");
+						checkCUDAError("post pbr write");
 
-					break;
-				case SPECULAR:
+						break;
+					case SPECULAR:
 
-					ShadeSpecular << <numblocksPathSegmentTracing, blockSize1d >> > (
-						iter,
-						count,
-						dev_intersections + start,
-						dev_paths + start,
-						dev_materials,
-						depth
-						);
+						ShadeSpecular << <numblocksPathSegmentTracing, blockSize1d >> > (
+							iter,
+							count,
+							dev_intersections + start,
+							dev_paths + start,
+							dev_materials,
+							depth
+							);
 
-					break;
-				case EMISSION:
+						break;
+					case EMISSION:
 
-					ShadeEmitting << <numblocksPathSegmentTracing, blockSize1d >> > (
-						iter,
-						count,
-						dev_intersections + start,
-						dev_paths + start,
-						dev_materials,
-						depth
-						);
+						ShadeEmitting << <numblocksPathSegmentTracing, blockSize1d >> > (
+							iter,
+							count,
+							dev_intersections + start,
+							dev_paths + start,
+							dev_materials,
+							depth
+							);
 
-					break;
-				case PBR:
-					break;
-				case ENVIRONMENT:
-					ShadeEnvironment << <numblocksPathSegmentTracing, blockSize1d >> > (
-						count,
-						dev_paths + start,
-						depth,
-						dev_EnvironmentTexture
-						);
+						break;
+					case PBR:
+						break;
+					case REFRACTION:
+						ShadeRefraction << <numblocksPathSegmentTracing, blockSize1d >> > (
+							iter,
+							count,
+							dev_intersections + start,
+							dev_paths + start,
+							dev_materials,
+							depth
+							);
+						break;
+					case ENVIRONMENT:
+						ShadeEnvironment << <numblocksPathSegmentTracing, blockSize1d >> > (
+							count,
+							dev_paths + start,
+							depth,
+							dev_EnvironmentTexture
+							);
 
-					checkCUDAError("post env write");
+						checkCUDAError("post env write");
 
-					if (start >= 0 && settings.streamCompact) {
-						alivePaths = start;
+						if (start >= 0 && settings.streamCompact) {
+							alivePaths = start;
+						}
+						break;
+					default:
+						break;
 					}
-					break;
-				default:
-					break;
 				}
 			}
+		}
+		else {
+			ShadeAll << <numblocksPathSegmentTracing, blockSize1d >> > (
+				iter,
+				alivePaths,
+				dev_intersections,
+				dev_paths,
+				dev_materials,
+				depth,
+				dev_EnvironmentTexture
+				);
+
+			//if (settings.streamCompact) {
+			//	if (host_start_indices[ENVIRONMENT] >= 0 && settings.streamCompact) {
+			//		alivePaths = host_start_indices[ENVIRONMENT];
+			//	}
+			//}
 		}
 
 		checkCUDAError("post material write");

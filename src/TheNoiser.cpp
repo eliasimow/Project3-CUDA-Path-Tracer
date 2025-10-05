@@ -3,25 +3,23 @@
 #include <optix_stubs.h>
 #include <optix_function_table_definition.h>
 
-void TheNoiser::init(int width, int height)
+void TheNoiser::init(int width, int height, std::vector<glm::vec3> previousFrame)
 {
 	optixInit();
 
 	imgWidth = width;
 	imgHeight = height;
 
-	CUcontext cuCtx = 0; // current CUDA context
+	CUcontext cuCtx = 0;
 	OptixDeviceContextOptions options = {};
 	optixDeviceContextCreate(cuCtx, &options, &context);
 
-	// Create denoiser
 	OptixDenoiserOptions denoiserOptions = {};
-	denoiserOptions.guideAlbedo = false;  // set true if you have albedo
-	denoiserOptions.guideNormal = false;  // set true if you have normals
+	denoiserOptions.guideAlbedo = false;
+	denoiserOptions.guideNormal = true;
 
+	//optixDenoiserCreate(context, previousFrame.size() > 0 ? OPTIX_DENOISER_MODEL_KIND_TEMPORAL : OPTIX_DENOISER_MODEL_KIND_HDR, &denoiserOptions, &denoiser);
 	optixDenoiserCreate(context, OPTIX_DENOISER_MODEL_KIND_HDR, &denoiserOptions, &denoiser);
-
-	// Compute memory requirements
 	OptixDenoiserSizes sizes;
 	optixDenoiserComputeMemoryResources(denoiser, imgWidth, imgHeight, &sizes);
 
@@ -36,6 +34,17 @@ void TheNoiser::init(int width, int height)
 	cudaMalloc(&dev_input, bufferSize);
 	cudaMalloc(&dev_output, bufferSize);
 	cudaMalloc(&dev_normals, bufferSize);
+
+	if (previousFrame.size() > 0) {
+		cudaMalloc(&dev_previous, bufferSize);
+		cudaMemcpy(dev_previous, previousFrame.data(), bufferSize, cudaMemcpyHostToDevice);
+		hasPrevious = true;
+	}
+	else {
+		dev_previous = 0;
+		hasPrevious = false;
+	}
+
 
 	// Setup denoiser
 	cudaStream_t stream;
@@ -56,15 +65,26 @@ std::vector<glm::vec3> TheNoiser::denoise(std::vector<glm::vec3> pixels, std::ve
 	denoiserLayer.input.data = reinterpret_cast<CUdeviceptr>(dev_input);
 	denoiserLayer.input.width = imgWidth;
 	denoiserLayer.input.height = imgHeight;
-	denoiserLayer.input.rowStrideInBytes = imgWidth * sizeof(float3);
-	denoiserLayer.input.pixelStrideInBytes = sizeof(float3);
+	denoiserLayer.input.rowStrideInBytes = imgWidth * sizeof(glm::vec3);
+	denoiserLayer.input.pixelStrideInBytes = sizeof(glm::vec3);
 	denoiserLayer.input.format = OPTIX_PIXEL_FORMAT_FLOAT3;
+
+	//OptixImage2D prevOutputLayer = {};
+	//if (hasPrevious) {
+	//	prevOutputLayer.data = reinterpret_cast<CUdeviceptr>(dev_previous);
+	//	prevOutputLayer.width = imgWidth;
+	//	prevOutputLayer.height = imgHeight;
+	//	prevOutputLayer.rowStrideInBytes = imgWidth * sizeof(glm::vec3);
+	//	prevOutputLayer.pixelStrideInBytes = sizeof(glm::vec3);
+	//	prevOutputLayer.format = OPTIX_PIXEL_FORMAT_FLOAT3;
+	//}
+	//denoiserLayer.previousOutput = prevOutputLayer;
 
 	denoiserLayer.output.data = reinterpret_cast<CUdeviceptr>(dev_output);
 	denoiserLayer.output.width = imgWidth;
 	denoiserLayer.output.height = imgHeight;
-	denoiserLayer.output.rowStrideInBytes = imgWidth * sizeof(float3);
-	denoiserLayer.output.pixelStrideInBytes = sizeof(float3);
+	denoiserLayer.output.rowStrideInBytes = imgWidth * sizeof(glm::vec3);
+	denoiserLayer.output.pixelStrideInBytes = sizeof(glm::vec3);
 	denoiserLayer.output.format = OPTIX_PIXEL_FORMAT_FLOAT3;
 
 	OptixDenoiserParams denoiserParams = {};
@@ -74,9 +94,18 @@ std::vector<glm::vec3> TheNoiser::denoise(std::vector<glm::vec3> pixels, std::ve
 	guides.normal.data = reinterpret_cast<CUdeviceptr>(dev_normals);
 	guides.normal.width = imgWidth;
 	guides.normal.height = imgHeight;
-	guides.normal.rowStrideInBytes = static_cast<unsigned int>(imgWidth * sizeof(glm::vec3));
-	guides.normal.pixelStrideInBytes = static_cast<unsigned int>(sizeof(glm::vec3));
+	guides.normal.rowStrideInBytes = imgWidth * sizeof(glm::vec3);
+	guides.normal.pixelStrideInBytes = sizeof(glm::vec3);
 	guides.normal.format = OPTIX_PIXEL_FORMAT_FLOAT3;
+
+	//if (hasPrevious) {
+	//	guides.previousOutputInternalGuideLayer.data = reinterpret_cast<CUdeviceptr>(dev_previous);
+	//	guides.previousOutputInternalGuideLayer.width = imgWidth;
+	//	guides.previousOutputInternalGuideLayer.height = imgHeight;
+	//	guides.previousOutputInternalGuideLayer.rowStrideInBytes = imgWidth * sizeof(glm::vec3);
+	//	guides.previousOutputInternalGuideLayer.pixelStrideInBytes = sizeof(glm::vec3);
+	//	guides.previousOutputInternalGuideLayer.format = OPTIX_PIXEL_FORMAT_FLOAT3;
+	//}
 
 	// Invoke denoiser
 	optixDenoiserInvoke(
@@ -111,4 +140,6 @@ void TheNoiser::free()
 	if (dev_input) cudaFree(dev_input);
 	if (dev_output) cudaFree(dev_output);
 	if (dev_normals) cudaFree(dev_normals);
+	if (dev_previous) cudaFree(dev_previous);
+
 }

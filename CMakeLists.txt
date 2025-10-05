@@ -60,6 +60,7 @@
         src/interactions.h
         src/intersections.h
         src/glslUtility.hpp
+        src/Materials.cuh
         src/pathtrace.h
         src/scene.h
         src/sceneStructs.h
@@ -69,12 +70,14 @@
         src/BVHNode.cuh
         src/AnimationParser.h
         src/TheNoiser.h
+
     )
 
     set(sources
         src/main.cpp
         src/image.cpp
         src/glslUtility.cpp
+        src/Materials.cu
         src/pathtrace.cu
         src/intersections.cu
         src/interactions.cu

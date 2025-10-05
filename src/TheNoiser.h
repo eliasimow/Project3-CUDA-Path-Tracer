@@ -11,7 +11,7 @@ class TheNoiser
 public:
 	TheNoiser() = default;
 
-	void init(int width, int height);
+	void init(int width, int height, std::vector<glm::vec3> previousFrame);
 	std::vector<glm::vec3> denoise(std::vector<glm::vec3> beautyPic, std::vector<glm::vec3> normals);
 	void free();
 
@@ -27,9 +27,12 @@ private:
 
 	void* dev_input = 0;
 	void* dev_normals = 0;
+	void* dev_previous = 0;
 	void* dev_output = 0;
 
 
 	int imgWidth = 0;
 	int imgHeight = 0;
+
+	bool hasPrevious = false;
 };
