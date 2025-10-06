@@ -113,7 +113,7 @@ __device__ void environment(PathSegment& path, int iter, int idx, int depth, con
 		path.color = sampleEnvRadiance(environmentTexture, path.ray.direction);
 	}
 	else {
-		path.color *= sampleEnvRadiance(environmentTexture, path.ray.direction);
+		path.color *= 0.8f; // sampleEnvRadiance(environmentTexture, path.ray.direction);
 	}
 	path.remainingBounces = 0;
 }

@@ -154,7 +154,7 @@ void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 				newPos += weight * (skinMatrix * glm::vec4(bindPos, 1.0f));
 				glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(skinMatrix)));
 				newNorm += weight * glm::vec4(normalMatrix * bindNorm, 0.0f);
-				std::cout << "\n from vert : " << glm::to_string(mesh.positions[i]) << " to: " << glm::to_string(newPos);
+				//std::cout << "\n from vert : " << glm::to_string(mesh.positions[i]) << " to: " << glm::to_string(newPos);
 
 			}
 		}

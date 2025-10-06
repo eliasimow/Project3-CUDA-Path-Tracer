@@ -88,7 +88,6 @@ __host__ __device__ float planeIntersectionTest(
 
 	outNormal = glm::normalize(glm::vec3(plane.invTranspose * glm::vec4(planeNormalOS, 0.0f)));
 	if (!outside) outNormal = -outNormal;
-
 	return glm::length(r.origin - intersectionPoint);
 }
 

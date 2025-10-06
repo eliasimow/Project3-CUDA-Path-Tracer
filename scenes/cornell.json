@@ -3,15 +3,15 @@
     "light": {
       "TYPE": "Emitting",
       "RGB": [ 1.0, 1.0, 1.0 ],
-      "EMITTANCE": 1.0
+      "EMITTANCE": 50.0
     },
     "diffuse_white": {
       "TYPE": "Diffuse",
-      "RGB": [ 0.98, 0.98, 0.98 ]
+      "RGB": [ 0.38, 0.48, 0.48 ]
     },
     "diffuse_red": {
       "TYPE": "Diffuse",
-      "RGB": [ 0.85, 0.35, 0.35 ]
+      "RGB": [ 0.05, 0.02, 0.02 ]
     },
     "red": {
       "TYPE": "Emitting",
@@ -21,13 +21,13 @@
     },
     "reflective_white": {
       "TYPE": "Reflective",
-      "RGB": [ 0.98, 0.98, 0.98 ],
-      "IOR": 1.0
+      "RGB": [ 0.58, 0.68, 0.68 ],
+      "IOR": 2.6
     },
     "specular_white": {
       "TYPE": "Specular",
       "RGB": [ 0.98, 0.98, 0.98 ],
-      "ROUGHNESS": 0.000001
+      "ROUGHNESS": 0.1
     },
     "somewhat_specular": {
       "TYPE": "Specular",
@@ -47,22 +47,29 @@
   },
   "Objects": [
     {
+      "TYPE": "plane",
+      "MATERIAL": "diffuse_red",
+      "TRANS": [ 0.0, 0.0, 0.0 ],
+      "ROTAT": [ 90.0, 0.0, 0.0 ],
+      "SCALE": [ 1.0, 1.0, 1.0 ]
+    },
+    {
       "TYPE": "sphere",
       "MATERIAL": "light",
-      "TRANS": [ -80.0, 130.0, -20.0 ],
+      "TRANS": [ 0.0, 40.0, 20.0 ],
       "ROTAT": [ 0.0, 0.0, 0.0 ],
-      "SCALE": [ 39.0, 30, 30.0 ]
+      "SCALE": [ 20.0, 1.0, 20.0 ]
     }
   ],
   "Gltf": {
-    "PATH": "C:/Users/elias/Downloads/cat_out/cat.gltf",
-    "MATERIAL": "red",
-    "TRANS": [ 2.0, 0.0, 2.0 ],
+    "PATH": "C:/Users/elias/Downloads/tango/scene.gltf",
+    "MATERIAL": "diffuse_white",
+    "TRANS": [ 0.0, 0.0, 20.0 ],
     "ROTAT": [ 0.0, 0.0, 0.0 ],
-    "SCALE": [ 50.0, 50.0, 50.0 ],
-    "FLIPNORMALS": 0
+    "SCALE": [ 0.1, 0.1, 0.1 ],
+    "FLIPNORMALS": 1
   },
   "EnvironmentMap": {
-    "PATH": "C:/Users/elias/Downloads/qwantani_moon_noon_puresky_4k.hdr"
+    "PATH": "C:/Users/elias/Downloads/abandoned_garage_4k.hdr"
   }
 }

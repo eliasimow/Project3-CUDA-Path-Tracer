@@ -30,7 +30,7 @@ public:
 	int currentFrame = -1;
 	int totalFrames;
 
-	static const int fps = 1;
+	static const int fps = 24;
 	bool flipGltfNormals = false;
 
 
@@ -46,6 +46,4 @@ public:
 	void BufferMesh(std::vector<Mesh>& meshes, bool flipNormals);
 
 	void IterateFrame();
-
-
 };
