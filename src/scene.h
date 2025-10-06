@@ -30,7 +30,7 @@ public:
 	int currentFrame = -1;
 	int totalFrames;
 
-	static const int fps = 24;
+	static const int fps = 1;
 	bool flipGltfNormals = false;
 
 

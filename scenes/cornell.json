@@ -52,21 +52,14 @@
       "TRANS": [ -80.0, 130.0, -20.0 ],
       "ROTAT": [ 0.0, 0.0, 0.0 ],
       "SCALE": [ 39.0, 30, 30.0 ]
-    },
-    {
-      "TYPE": "plane",
-      "MATERIAL": "specular_white",
-      "TRANS": [ 0.0, 0.0, 0.0 ],
-      "ROTAT": [ 90.0, 0.0, 0.0 ],
-      "SCALE": [ 1.0, 1.0, 1.0 ]
     }
   ],
   "Gltf": {
-    "PATH": "C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf",
+    "PATH": "C:/Users/elias/Downloads/cat_out/cat.gltf",
     "MATERIAL": "red",
     "TRANS": [ 2.0, 0.0, 2.0 ],
     "ROTAT": [ 0.0, 0.0, 0.0 ],
-    "SCALE": [ 0.07, 0.07, 0.07 ],
+    "SCALE": [ 50.0, 50.0, 50.0 ],
     "FLIPNORMALS": 0
   },
   "EnvironmentMap": {

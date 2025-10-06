@@ -8,6 +8,7 @@
 #define TINYGLTF_IMPLEMENTATION
 #include "tiny_gltf.h"
 #include <glm/gtx/transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 namespace {
 
@@ -123,12 +124,35 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 	std::unordered_map<int, int> meshIdToSkinId;
 
 	//nodes:
+
+	std::unordered_map<int, int> nodeParent; // nodeIndex -> parentIndex
+
+	for (size_t parentIndex = 0; parentIndex < model.nodes.size(); ++parentIndex) {
+		const tinygltf::Node& parentNode = model.nodes[parentIndex];
+		for (int childIndex : parentNode.children) {
+			nodeParent[childIndex] = static_cast<int>(parentIndex);
+		}
+	}
+
+
 	std::vector<Node> nodes(model.nodes.size());
 	for (int i = 0; i < model.nodes.size(); ++i) {
 		const auto& glNode = model.nodes[i];
 
-		if (glNode.skin >= 0 && glNode.mesh >= 0) {
-			meshIdToSkinId[glNode.mesh] = glNode.skin;
+		if (glNode.mesh >= 0) {
+			int skinId = -1;
+			if (glNode.skin >= 0) {
+				skinId = glNode.skin;
+			}
+			else {
+				int parentNode = nodeParent[i];
+				while (parentNode >= 0 && skinId < 0) {
+					if (model.nodes[parentNode].skin >= 0)
+						skinId = model.nodes[parentNode].skin;
+					parentNode = nodes[parentNode].parent;
+				}
+			}
+			meshIdToSkinId[glNode.mesh] = skinId; // now every mesh node has either a skin or -1
 		}
 
 		Node n;
@@ -207,7 +231,8 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 
 	std::vector<Mesh> outMeshes;
 	int vertexCount = 0;
-	for (const auto& mesh : model.meshes) {
+	for (size_t meshIndex = 0; meshIndex < model.meshes.size(); ++meshIndex) {
+		const auto& mesh = model.meshes[meshIndex];
 		for (const auto& prim : mesh.primitives) {
 			Mesh mymesh;
 			mymesh.name = mesh.name;
@@ -252,8 +277,8 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 			}
 
 			//this feels really unsafe
-			if (meshIdToSkinId.find(outMeshes.size()) != meshIdToSkinId.end()) {
-				mymesh.skin = skins[meshIdToSkinId[outMeshes.size()]];
+			if (meshIdToSkinId.find(meshIndex) != meshIdToSkinId.end()) {
+				mymesh.skin = skins[meshIdToSkinId[meshIndex]];
 			}
 
 			auto it = prim.attributes.find("JOINTS_0");
@@ -262,23 +287,37 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 				const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
 				const tinygltf::Buffer& buffer = model.buffers[view.buffer];
 
-				size_t offset = accessor.byteOffset + view.byteOffset;
-				const unsigned char* dataPtr = buffer.data.data() + offset;
+				const size_t componentSize = tinygltf::GetComponentSizeInBytes(accessor.componentType);
+				const size_t numComponents = tinygltf::GetNumComponentsInType(accessor.type);
+				const size_t stride = accessor.ByteStride(view);
+
+				const unsigned char* dataPtr = buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
 				for (size_t i = 0; i < accessor.count; ++i) {
-					glm::uvec4 joint;
-					if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
-						const uint8_t* ptr = reinterpret_cast<const uint8_t*>(dataPtr + i * view.byteStride);
-						joint = glm::uvec4(ptr[0], ptr[1], ptr[2], ptr[3]);
+					const unsigned char* ptr = dataPtr + i * stride;
+					glm::uvec4 joint(0);
+
+					switch (accessor.componentType) {
+					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
+						const uint8_t* p = reinterpret_cast<const uint8_t*>(ptr);
+						joint = glm::uvec4(p[0], p[1], p[2], p[3]);
+						break;
 					}
-					else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-						const uint16_t* ptr = reinterpret_cast<const uint16_t*>(dataPtr + i * view.byteStride);
-						joint = glm::uvec4(ptr[0], ptr[1], ptr[2], ptr[3]);
+					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+						const uint16_t* p = reinterpret_cast<const uint16_t*>(ptr);
+						joint = glm::uvec4(p[0], p[1], p[2], p[3]);
+						break;
 					}
-					else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
-						const uint32_t* ptr = reinterpret_cast<const uint32_t*>(dataPtr + i * view.byteStride);
-						joint = glm::uvec4(ptr[0], ptr[1], ptr[2], ptr[3]);
+					case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+						const uint32_t* p = reinterpret_cast<const uint32_t*>(ptr);
+						joint = glm::uvec4(p[0], p[1], p[2], p[3]);
+						break;
 					}
+					default:
+						std::cerr << "Unsupported joint component type\n";
+						break;
+					}
+
 					mymesh.jointIndices.push_back(joint);
 				}
 			}
