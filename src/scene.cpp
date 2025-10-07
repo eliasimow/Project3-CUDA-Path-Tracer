@@ -168,6 +168,8 @@ void Scene::loadFromJSON(const std::string& jsonName)
 		//"C:\Users\elias\Downloads\animated_dance_teacher_-_bellydance.zip"
 		//"C:/Users/elias/Downloads/animated_dance_teacher_-_bellydance/scene.gltf"
 		gltfData = parser.LoadFromFile(path);
+		gltfPath = path;
+
 		BufferMesh(gltfData.meshes, flipGltfNormals);
 		BuildBVH();
 
@@ -213,13 +215,14 @@ void Scene::BufferMesh(std::vector<Mesh>& meshes, bool flipNormals) {
 		int indexOffset = vertexData.size();
 		m.vertexOffset = indexOffset;
 		glm::mat4 inverseTranspMat = glm::inverse(glm::transpose(gltfFrame));
+		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(gltfFrame)));
+
 
 		for (int i = 0; i < m.positions.size(); ++i) {
 			glm::vec4 transformedPosition = gltfFrame * glm::vec4(m.positions[i].x, m.positions[i].y, m.positions[i].z, 1);
 			glm::vec3 position = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
-			glm::vec3 normal = flipNormals ? m.normals[i] * -1.f : m.normals[i]; // inverseTranspMat* glm::vec4(m.normals[i], 0.0f);
-
-			vertexData.push_back(VertexData(position, glm::vec3(normal.x, normal.y, normal.z)));
+			glm::vec3 normal = normalMatrix * (flipNormals ? m.normals[i] * -1.f : m.normals[i]); // inverseTranspMat* glm::vec4(m.normals[i], 0.0f);
+			vertexData.push_back(VertexData(position, glm::vec3(normal.x, normal.y, normal.z), m.texcoords0[i]));
 		}
 
 		for (int i = 0; i < m.indices.size() - 2; i += 3) {
@@ -227,6 +230,7 @@ void Scene::BufferMesh(std::vector<Mesh>& meshes, bool flipNormals) {
 			t.vertIndices[0] = indexOffset + m.indices[i];
 			t.vertIndices[1] = indexOffset + m.indices[i + 1];
 			t.vertIndices[2] = indexOffset + m.indices[i + 2];
+			t.textureIndex = m.cudaTextureIndex[m.indices[i]];
 			triangles.push_back(t);
 		}
 	}
@@ -250,18 +254,19 @@ void Scene::IterateFrame()
 			animator.UpdateGlobalMatrices(*this, i);
 		}
 	}
+	glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(gltfFrame)));
 
 	for (Mesh& mesh : gltfData.meshes) {
 		animator.UpdateVerticesAndNormals(*this, mesh);
 		for (int i = 0; i < mesh.positions.size(); ++i) {
 			glm::vec4 transformedPosition = gltfFrame * glm::vec4(mesh.positions[i].x, mesh.positions[i].y, mesh.positions[i].z, 1);
 			glm::vec3 position = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
-			glm::vec3 normal = glm::vec3(mesh.normals[i].x, mesh.normals[i].y, mesh.normals[i].z);
+			glm::vec3 normal = normalMatrix * glm::vec3(mesh.normals[i].x, mesh.normals[i].y, mesh.normals[i].z);
 			if (flipGltfNormals) {
 				normal *= -1.f;
 			}
 
-			vertexData[i + mesh.vertexOffset] = VertexData(position, normal);
+			vertexData[i + mesh.vertexOffset] = VertexData(position, normal, mesh.texcoords0[i]);
 		}
 	}
 

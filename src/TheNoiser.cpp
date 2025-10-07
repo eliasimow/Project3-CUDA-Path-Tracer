@@ -88,7 +88,7 @@ std::vector<glm::vec3> TheNoiser::denoise(std::vector<glm::vec3> pixels, std::ve
 	denoiserLayer.output.format = OPTIX_PIXEL_FORMAT_FLOAT3;
 
 	OptixDenoiserParams denoiserParams = {};
-	denoiserParams.blendFactor = 0.8f;
+	denoiserParams.blendFactor = 0.2f;
 
 	OptixDenoiserGuideLayer guides = {};
 	guides.normal.data = reinterpret_cast<CUdeviceptr>(dev_normals);

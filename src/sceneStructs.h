@@ -11,7 +11,6 @@
 #include <optional>
 #include <unordered_map>
 
-
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
 enum GeomType
@@ -49,7 +48,7 @@ struct Triangle
 {
 	// glm::vec3 centroid;
 	int vertIndices[3];
-	// int indexIndex;
+	int textureIndex;
 };
 
 enum MaterialType {
@@ -76,6 +75,7 @@ struct Material
 	float indexOfRefraction = 0.f;
 	float emittance;
 	float roughness = 0.f;
+	int textureId;
 };
 
 struct Camera
@@ -114,6 +114,7 @@ struct ShadeableIntersection
 {
 	float t;
 	glm::vec3 surfaceNormal;
+	glm::vec3 textureColor = glm::vec3(1, 1, 1);
 	int materialId;
 };
 
@@ -216,10 +217,10 @@ struct Node {
 };
 
 struct VertexData {
-	VertexData(glm::vec3 p, glm::vec3 n) : position(p), surfaceNormal(n) {}
-
+	VertexData(glm::vec3 p, glm::vec3 n, glm::vec2 uv) : position(p), surfaceNormal(n), uv(uv) {}
 	glm::vec3 position;
 	glm::vec3 surfaceNormal;
+	glm::vec2 uv;
 };
 
 struct Mesh {
@@ -229,6 +230,8 @@ struct Mesh {
 	std::vector<glm::vec3> normals;
 	std::vector<glm::vec3> bindNormals;
 	std::vector<glm::vec2> texcoords0;
+	std::vector<int> cudaTextureIndex;
+
 	std::vector<uint32_t> indices;
 	std::vector<glm::uvec4> jointIndices;
 	std::vector<glm::vec4>  weights;
@@ -265,7 +268,6 @@ struct FullGltfData {
 		animations(std::move(animations)),
 		animationTime(animationTime)
 	{
-
 		for (int i = 0; i < iNodes.size(); ++i) {
 			nodes[i] = iNodes[i];
 		}

@@ -74,15 +74,18 @@ __host__ __device__ float sphereIntersectionTest(
 	glm::vec3& normal,
 	bool& outside);
 
-__host__ __device__ float intersectBVH(
+__device__ float intersectBVH(
 	Ray ray,
 	const BVHNode* __restrict__  nodes,
 	const Triangle* __restrict__ triangles,
 	const VertexData* __restrict__ vertexData,
 	glm::vec3& intersectionPoint,
 	glm::vec3& normal,
+	glm::vec3& color,
 	bool& outside,
-	bool runBVH);
+	bool runBVH,
+	cudaTextureObject_t* textures
+);
 
 __device__ float2 dirToUV(const glm::vec3& d);
 __device__ glm::vec3 sampleEnvRadiance(cudaTextureObject_t envTex, const glm::vec3& dir);

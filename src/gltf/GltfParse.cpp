@@ -237,6 +237,15 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 			Mesh mymesh;
 			mymesh.name = mesh.name;
 
+
+			int baseColorTextIndex = -1;
+
+			if (prim.material >= 0) {
+				const tinygltf::Material& mat = model.materials[prim.material];
+				const tinygltf::PbrMetallicRoughness& pbr = mat.pbrMetallicRoughness;
+				baseColorTextIndex = pbr.baseColorTexture.index;
+			}
+
 			// Positions (required for rendering)
 			if (prim.attributes.find("POSITION") != prim.attributes.end()) {
 				const tinygltf::Accessor& acc = model.accessors[prim.attributes.at("POSITION")];
@@ -248,6 +257,7 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 				for (size_t i = 0; i < numElems; ++i) {
 					mymesh.positions[i] = pos[i];
 					mymesh.bindVertPos[i] = pos[i];
+					mymesh.cudaTextureIndex.push_back(baseColorTextIndex);
 				}
 			}
 
@@ -278,7 +288,11 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 
 			//this feels really unsafe
 			if (meshIdToSkinId.find(meshIndex) != meshIdToSkinId.end()) {
-				mymesh.skin = skins[meshIdToSkinId[meshIndex]];
+				if (meshIdToSkinId[meshIndex] == -1) {
+				}
+				else {
+					mymesh.skin = skins[meshIdToSkinId[meshIndex]];
+				}
 			}
 
 			auto it = prim.attributes.find("JOINTS_0");

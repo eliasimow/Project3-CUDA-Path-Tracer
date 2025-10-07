@@ -485,6 +485,8 @@ void saveImage(int frame = 0)
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
+bool hasBufferedTextures = false;
+
 void runCuda()
 {
 	if (camchanged)
@@ -518,8 +520,10 @@ void runCuda()
 
 	if (iteration == 0)
 	{
-		pathtraceFree();
-		pathtraceInit(scene);
+		pathtraceFree(hasBufferedTextures);
+		pathtraceInit(scene, hasBufferedTextures);
+		hasBufferedTextures = true;
+
 	}
 
 	if (iteration < renderState->iterations)

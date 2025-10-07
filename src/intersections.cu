@@ -70,22 +70,27 @@ __host__ __device__ float planeIntersectionTest(
 	glm::vec3 planeNormalOS = glm::vec3(0.0f, 0.0f, 1.0f);
 	float denom = glm::dot(q.direction, planeNormalOS);
 
-	if (glm::abs(denom) < FLT_MIN) {
+	// Use a meaningful epsilon (not FLT_MIN!)
+	const float EPSILON = 1e-6f;
+	if (glm::abs(denom) < EPSILON) {
 		// Ray is parallel to plane
 		return -1.0f;
 	}
 
 	float t = glm::dot((glm::vec3(0.0f) - q.origin), planeNormalOS) / denom;
 
-	if (t < 0.0f) {
+	if (t < EPSILON) {  // Changed from 0.0f
 		// Plane is behind the ray
 		return -1.0f;
 	}
 
+	const float MAX_DISTANCE = 1e6f;
+	if (t > MAX_DISTANCE) {
+		return -1.0f;
+	}
+
 	outside = denom < 0.0f;
-
 	intersectionPoint = glm::vec3(plane.transform * glm::vec4(getPointOnRay(q, t), 1.0f));
-
 	outNormal = glm::normalize(glm::vec3(plane.invTranspose * glm::vec4(planeNormalOS, 0.0f)));
 	if (!outside) outNormal = -outNormal;
 	return glm::length(r.origin - intersectionPoint);
@@ -94,13 +99,15 @@ __host__ __device__ float planeIntersectionTest(
 
 //following:
 //https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
-__host__ __device__ float triangleIntersectionTest(
+__device__ float triangleIntersectionTest(
 	Ray r,
 	int triangleIdx,
 	const Triangle* __restrict__ triangles,
 	const VertexData* __restrict__ vertexData,
 	glm::vec3& intersectionPoint,
 	glm::vec3& normal,
+	glm::vec3& color,
+	cudaTextureObject_t* textures,
 	bool& outside)
 {
 	Triangle tri = triangles[triangleIdx];
@@ -143,6 +150,27 @@ __host__ __device__ float triangleIntersectionTest(
 	glm::vec3 n1 = vertexData[tri.vertIndices[0]].surfaceNormal;
 	glm::vec3 n2 = vertexData[tri.vertIndices[1]].surfaceNormal;
 	glm::vec3 n3 = vertexData[tri.vertIndices[2]].surfaceNormal;
+
+	if (tri.textureIndex >= 0) {
+		float4 col1 = tex2D<float4>(textures[tri.textureIndex],
+			vertexData[tri.vertIndices[0]].uv.x,
+			vertexData[tri.vertIndices[0]].uv.y);
+		float4 col2 = tex2D<float4>(textures[tri.textureIndex],
+			vertexData[tri.vertIndices[1]].uv.x,
+			vertexData[tri.vertIndices[1]].uv.y);
+		float4 col3 = tex2D<float4>(textures[tri.textureIndex],
+			vertexData[tri.vertIndices[2]].uv.x,
+			vertexData[tri.vertIndices[2]].uv.y);
+
+		color = glm::vec3(
+			col1.x * w + col2.x * u + col3.x * v,
+			col1.y * w + col2.y * u + col3.y * v,
+			col1.z * w + col2.z * u + col3.z * v
+		);
+	}
+
+
+
 	normal = glm::normalize(w * n1 + u * n2 + v * n3);
 
 	outside = glm::dot(normal, r.direction) < FLT_EPSILON;
@@ -222,20 +250,24 @@ __host__ __device__ bool intersectAABB(const Ray ray, const float t, const glm::
 	return tmax >= tmin && (tmin < t || t < 0) && tmax > 0;
 }
 
-__host__ __device__ float intersectBVH(
+__device__ float intersectBVH(
 	Ray ray,
 	const BVHNode* __restrict__  nodes,
 	const Triangle* __restrict__ triangles,
 	const VertexData* __restrict__ positions,
 	glm::vec3& intersectionPoint,
 	glm::vec3& normal,
+	glm::vec3& color,
 	bool& outside,
-	bool runBVH) {
+	bool runBVH,
+	cudaTextureObject_t* textures
+) {
 
 	float tTest = -1;
 	float t = -1;
 	glm::vec3 intersectionTest;
 	glm::vec3 normalTest;
+	glm::vec3 colorTest;
 	bool outsideTest;
 
 	int stack[32];
@@ -253,13 +285,14 @@ __host__ __device__ float intersectBVH(
 		if (node.primCount > 0)
 		{
 			for (int i = 0; i < node.primCount; i++) {
-				tTest = triangleIntersectionTest(ray, node.leftOrFirstTri + i, triangles, positions, intersectionTest, normalTest, outsideTest);
+				tTest = triangleIntersectionTest(ray, node.leftOrFirstTri + i, triangles, positions, intersectionTest, normalTest, colorTest, textures, outsideTest);
 
 				if (tTest > 0 && (tTest < t || t < 0)) {
 					t = tTest;
 					intersectionPoint = intersectionTest;
 					normal = normalTest;
 					outside = outsideTest;
+					color = colorTest;
 				}
 			}
 		}

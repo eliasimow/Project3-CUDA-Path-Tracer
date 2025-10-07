@@ -138,7 +138,7 @@ void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 		glm::vec4 newNorm = glm::vec4(0.0f);
 
 		if (i >= mesh.jointIndices.size() || i >= mesh.weights.size() || mesh.skin.joints.size() == 0) {
-			continue;
+			break;
 		}
 
 		glm::ivec4 joints = mesh.jointIndices[i];
@@ -155,7 +155,6 @@ void AnimationParser::UpdateVerticesAndNormals(Scene& scene, Mesh& mesh)
 				glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(skinMatrix)));
 				newNorm += weight * glm::vec4(normalMatrix * bindNorm, 0.0f);
 				//std::cout << "\n from vert : " << glm::to_string(mesh.positions[i]) << " to: " << glm::to_string(newPos);
-
 			}
 		}
 

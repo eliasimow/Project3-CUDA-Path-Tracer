@@ -24,6 +24,9 @@ public:
 	std::vector<VertexData> vertexData;
 
 	std::vector<glm::vec4> environmentTexture;
+
+	std::string gltfPath;
+
 	int environmentWidth = 0;
 	int environmentHeight = 0;
 

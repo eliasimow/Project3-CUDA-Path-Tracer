@@ -16,6 +16,7 @@
 #include "BrdsfHelperService.cuh"
 #include "BVHNode.cuh"
 #include "Materials.cuh"
+#include <tiny_gltf.h>
 
 #define ERRORCHECK 1
 
@@ -82,6 +83,12 @@ static VertexData* dev_vertData = NULL;
 static Triangle* dev_triangles = NULL;
 static BVHNode* dev_BVHNodes = NULL;
 static cudaArray_t dev_environmentMap = NULL;
+static std::vector<cudaTextureObject_t> hostTextures;
+static std::vector<cudaArray_t> cudaArrays;
+static thrust::device_vector<cudaTextureObject_t> deviceTextures;
+static cudaTextureObject_t* dev_textures;
+
+
 cudaTextureObject_t dev_EnvironmentTexture;
 
 // TODO: static variables for device memory, any extra info you need, etc
@@ -92,7 +99,7 @@ void InitDataContainer(GuiDataContainer* imGuiData)
 	guiData = imGuiData;
 }
 
-void pathtraceInit(Scene* scene)
+void pathtraceInit(Scene* scene, bool ignoreGltfTextures)
 {
 	hst_scene = scene;
 
@@ -112,7 +119,6 @@ void pathtraceInit(Scene* scene)
 
 	cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
-
 
 	//MATERIAL SORTING:
 
@@ -138,36 +144,114 @@ void pathtraceInit(Scene* scene)
 
 		cudaMalloc(&dev_BVHNodes, scene->bvh->nodes.size() * sizeof(BVHNode));
 		cudaMemcpy(dev_BVHNodes, scene->bvh->nodes.data(), scene->bvh->nodes.size() * sizeof(BVHNode), cudaMemcpyHostToDevice);
+
+
+		tinygltf::Model model;
+		tinygltf::TinyGLTF loader;
+		std::string err, warn;
+
+		bool ret;
+		const std::string ext = scene->gltfPath.size() >= 4 ? scene->gltfPath.substr(scene->gltfPath.size() - 4) : std::string();
+		if (ext == ".glb") {
+			ret = loader.LoadBinaryFromFile(&model, &err, &warn, scene->gltfPath);
+		}
+		else {
+			ret = loader.LoadASCIIFromFile(&model, &err, &warn, scene->gltfPath);
+		}
+		if (!warn.empty()) {
+			std::cerr << "tinygltf warning: " << warn << "\n";
+		}
+		if (!err.empty()) {
+			std::cerr << "tinygltf error: " << err << "\n";
+		}
+		if (!ret) {
+			std::cerr << "Failed to load glTF: " << scene->gltfPath << "\n";
+		}
+		if (!ignoreGltfTextures) {
+			std::vector<const tinygltf::Texture*> textures;
+			std::vector<const tinygltf::Image*> images;
+
+			for (size_t i = 0; i < model.textures.size(); ++i) {
+				const tinygltf::Texture& tex = model.textures[i];
+				const tinygltf::Image& img = model.images[tex.source];
+
+				textures.push_back(&tex);
+				images.push_back(&img);
+			}
+
+
+			//fuck me this is dfumb
+			for (size_t i = 0; i < textures.size(); ++i)
+			{
+				const tinygltf::Texture* texture = textures[i];
+				const tinygltf::Image* image = images[texture->source];
+				checkCUDAError("texture loading 1");
+
+				cudaArray_t cuArray;
+				cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<uchar4>();
+				cudaMallocArray(&cuArray, &channelDesc, image->width, image->height);
+
+				size_t pitch = image->width * sizeof(uchar4);
+				cudaMemcpy2DToArray(cuArray, 0, 0, image->image.data(), pitch, pitch, image->height, cudaMemcpyHostToDevice);
+
+				cudaResourceDesc resDesc = {};
+				resDesc.resType = cudaResourceTypeArray;
+				resDesc.res.array.array = cuArray;
+				checkCUDAError("texture loading 2");
+
+				cudaTextureDesc texDesc = {};
+				texDesc.addressMode[0] = cudaAddressModeWrap;
+				texDesc.addressMode[1] = cudaAddressModeWrap;
+				texDesc.filterMode = cudaFilterModePoint;
+				texDesc.readMode = cudaReadModeNormalizedFloat;
+				texDesc.addressMode[0] = cudaAddressModeClamp;
+				texDesc.addressMode[1] = cudaAddressModeClamp;
+
+				texDesc.normalizedCoords = 1;
+
+				cudaTextureObject_t texObj = 0;
+				cudaCreateTextureObject(&texObj, &resDesc, &texDesc, nullptr);
+
+				hostTextures.push_back(texObj);
+				cudaArrays.push_back(cuArray);
+
+				deviceTextures = thrust::device_vector<cudaTextureObject_t>(hostTextures);
+				dev_textures = thrust::raw_pointer_cast(deviceTextures.data());
+
+				checkCUDAError("texture loading 3");
+			}
+		}
 	}
 
 
 	checkCUDAError("pathtraceInit");
 
-	//environment map:
-	if (scene->environmentTexture.size() > 0) {
-		cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float4>();
-		cudaMallocArray(&dev_environmentMap, &channelDesc, scene->environmentWidth, scene->environmentHeight);
-		cudaMemcpy2DToArray(dev_environmentMap, 0, 0, scene->environmentTexture.data(), scene->environmentWidth * sizeof(float4), scene->environmentWidth * sizeof(float4), scene->environmentHeight, cudaMemcpyHostToDevice);
+	if (!ignoreGltfTextures) {
+		//environment map:
+		if (scene->environmentTexture.size() > 0) {
+			cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float4>();
+			cudaMallocArray(&dev_environmentMap, &channelDesc, scene->environmentWidth, scene->environmentHeight);
+			cudaMemcpy2DToArray(dev_environmentMap, 0, 0, scene->environmentTexture.data(), scene->environmentWidth * sizeof(float4), scene->environmentWidth * sizeof(float4), scene->environmentHeight, cudaMemcpyHostToDevice);
 
-		cudaResourceDesc resDesc = {};
-		resDesc.resType = cudaResourceTypeArray;
-		resDesc.res.array.array = dev_environmentMap;
+			cudaResourceDesc resDesc = {};
+			resDesc.resType = cudaResourceTypeArray;
+			resDesc.res.array.array = dev_environmentMap;
 
-		cudaTextureDesc texDesc = {};
-		texDesc.addressMode[0] = cudaAddressModeWrap;   // U - wrap so u=0..1 wraps
-		texDesc.addressMode[1] = cudaAddressModeClamp;  // V - clamp or clamp_to_edge to avoid seam at poles
-		texDesc.filterMode = cudaFilterModeLinear;      // linear filtering
-		texDesc.readMode = cudaReadModeElementType;     // return float4
-		texDesc.normalizedCoords = 1;                   // coordinates are normalized [0,1]
+			cudaTextureDesc texDesc = {};
+			texDesc.addressMode[0] = cudaAddressModeWrap;
+			texDesc.addressMode[1] = cudaAddressModeClamp;
+			texDesc.filterMode = cudaFilterModeLinear;
+			texDesc.readMode = cudaReadModeElementType;
+			texDesc.normalizedCoords = 1;
 
-		dev_EnvironmentTexture = 0;
-		cudaCreateTextureObject(&dev_EnvironmentTexture, &resDesc, &texDesc, nullptr);
+			dev_EnvironmentTexture = 0;
+			cudaCreateTextureObject(&dev_EnvironmentTexture, &resDesc, &texDesc, nullptr);
+		}
 	}
-
 	checkCUDAError("pathtraceInit");
 }
 
-void pathtraceFree()
+void pathtraceFree(bool ignoreGltfTextues)
 {
 	cudaFree(dev_image);  // no-op if dev_image is null
 	cudaFree(dev_paths);
@@ -181,16 +265,30 @@ void pathtraceFree()
 	cudaFree(dev_vertData);
 	cudaFree(dev_BVHNodes);
 
-	checkCUDAError("pathtraceFree");
+	if (!ignoreGltfTextues) {
+		for (auto texObj : hostTextures) {
+			cudaDestroyTextureObject(texObj);
+		}
 
-	cudaDestroyTextureObject(dev_EnvironmentTexture);
+		cudaFree(dev_textures);
 
-	checkCUDAError("pathtraceFree");
+		for (auto cuArray : cudaArrays) {
+			if (cuArray != nullptr) {
+				cudaFreeArray(cuArray);
+			}
+		}
 
-	if (dev_environmentMap != nullptr)
-		cudaFreeArray(dev_environmentMap);
+		checkCUDAError("pathtraceFree");
 
-	checkCUDAError("pathtraceFree");
+		cudaDestroyTextureObject(dev_EnvironmentTexture);
+
+		checkCUDAError("pathtraceFree");
+
+		if (dev_environmentMap != nullptr)
+			cudaFreeArray(dev_environmentMap);
+
+		checkCUDAError("pathtraceFree");
+	}
 }
 
 /**
@@ -255,7 +353,8 @@ __global__ void computeIntersections(
 	int geoms_size,
 	VertexData* vertexData,
 	ShadeableIntersection* intersections,
-	bool runBVH
+	bool runBVH,
+	cudaTextureObject_t* textures
 )
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -279,14 +378,13 @@ __global__ void computeIntersections(
 
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
-
+		glm::vec3 color = glm::vec3(1.f);
 		// naive parse through global geoms
 		for (int i = 0; i < geoms_size; i++)
 		{
 			Geom& geom = geoms[i];
-			volatile int type = geom.type;
-			type++;
-			type--;
+			glm::vec3 minColor = glm::vec3(1.f);
+
 			if (geom.type == CUBE)
 			{
 				t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
@@ -301,7 +399,8 @@ __global__ void computeIntersections(
 			}
 			else if (geom.type == TRIANGLES)
 			{
-				t = intersectBVH(pathSegment.ray, bvhNodes, triangles, vertexData, tmp_intersect, tmp_normal, outside, runBVH);
+
+				t = intersectBVH(pathSegment.ray, bvhNodes, triangles, vertexData, tmp_intersect, tmp_normal, minColor, outside, runBVH, textures);
 			}
 			if (t > 0.0f && t_min > t)
 			{
@@ -309,6 +408,7 @@ __global__ void computeIntersections(
 				hit_geom_index = i;
 				intersect_point = tmp_intersect;
 				normal = tmp_normal;
+				color = minColor;
 			}
 		}
 
@@ -316,6 +416,7 @@ __global__ void computeIntersections(
 		{
 			intersections[path_index].t = -1.0f;
 			intersections[path_index].materialId = -1;
+
 		}
 		else
 		{
@@ -323,6 +424,7 @@ __global__ void computeIntersections(
 			intersections[path_index].t = t_min;
 			intersections[path_index].materialId = geoms[hit_geom_index].materialid;
 			intersections[path_index].surfaceNormal = normal;
+			intersections[path_index].textureColor = color;
 		}
 	}
 }
@@ -422,6 +524,8 @@ __global__ void ShadeAll(
 		PathSegment& path = pathSegments[idx];
 		const Material& mat = materials[intersection.materialId];
 		thrust::uniform_real_distribution<float> u01(0, 1);
+
+		if (path.remainingBounces <= 0) return;
 
 		if (intersection.t < 0) {
 			environment(path, 0, idx, depth, environmentTexture);
@@ -577,7 +681,8 @@ void pathtrace(uchar4* pbo, int frame, int iter, SceneSettings settings)
 			hst_scene->geoms.size(),
 			dev_vertData,
 			dev_intersections,
-			settings.bvh
+			settings.bvh,
+			dev_textures
 			);
 		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
