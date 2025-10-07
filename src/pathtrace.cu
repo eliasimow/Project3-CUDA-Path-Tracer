@@ -314,8 +314,8 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 
 
 		if (stochastic) {
-			thrust::default_random_engine rng = makeSeededRandomEngine(iter, index, index);
-			thrust::uniform_real_distribution<float> range(-.5f, 0.5f);
+			thrust::default_random_engine rng = makeSeededRandomEngine(iter, index, traceDepth);
+			thrust::uniform_real_distribution<float> range(-.75f, .75f);
 			// offset
 			float moveX = range(rng);
 			float moveY = range(rng);
