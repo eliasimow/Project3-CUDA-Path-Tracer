@@ -1,15 +1,15 @@
-![output](https://github.com/user-attachments/assets/18f15916-51d3-49d1-846a-d0e19f43e4af)
-
+![output](https://github.com/user-attachments/assets/f90220db-8249-49e5-a186-692e65b07bf6)
 
 # CUDA ANIMATED PATH TRACER
 *  Eli Asimow
 * [LinkedIn](https://www.linkedin.com/in/eli-asimow/), [personal website](https://easimow.com)
 * Tested on: Windows 11, AMD Ryzen 7 7435HS @ 2.08GHz 16GB, Nvidia GeForce RTX 4060 GPU
 
-
 ## Overview
 
 This application is an animation path traced renderer for GLTF files. It includes all necessary logic for rendering your custom rigged animation in a dynamic lighting and environment map scene. Models can be diffused textured, or set to one of the supported alternative materials like emission, refraction, or specular. Animations are rendered as separate frames, and can be tied together using video encoders such as ffmpeg. This has been quite a process to create, so I’m excited to share my thoughts with y’all!
+
+For those that are less familiar with graphics, I recommend [this Disney video](https://www.youtube.com/watch?v=frLwRLS_ZR0) overviewing the topic of path tracing.
 
 ## Performance Testing
 
@@ -75,10 +75,13 @@ With that context covered, the process for animation is actually just three fair
 In terms of how the path tracer handles the animation, on completion of our current frame we simply save our current render, clear the screen, update the mesh, and begin our next frame. When all frames have been animated, the render is complete and the application terminates. I use ffmpeg outside of my application to combine the render pngs into videos and gifs. 
 
 
+https://github.com/user-attachments/assets/309cd93d-1728-4ef1-9481-ffa96c8cc981
+
 ### OPTIX Denoiser
 
-	Rendering all the frames of an animation takes quite a bit longer than rendering a singular image. When I briefly discussed my plan with Shehzan, his advice was to include a denoiser to expedite that process. Hooking up the denoiser was actually fairly straightforward after I had downloaded the Optix headers. The Beauty texture we already had, as we’d only want to apply the denoiser at the end of the render, and adding a scene normals render was fairly straightforward. Honestly, I should have added the normal render earlier; it caught a few nasty bugs with my animation normals. 
+Rendering all the frames of an animation takes quite a bit longer than rendering a singular image. When I briefly discussed my plan with Shehzan, his advice was to include a denoiser to expedite that process. Hooking up the denoiser was actually fairly straightforward after I had downloaded the Optix headers. The Beauty texture we already had, as we’d only want to apply the denoiser at the end of the render, and adding a scene normals render was fairly straightforward. Honestly, I should have added the normal render earlier; it caught a few nasty bugs with my animation normals. 
 
+<img width="512" height="236" alt="image" src="https://github.com/user-attachments/assets/1d0a7620-a9ae-4050-a8f1-bf9231f824fc" />
 
 The results were immediately compelling, but they had their constraints in an animation context. Consider the difference between the renders of two adjacent frames; we’ll have the updated model, but we’ll also have a slightly different environment as the path rays diverge to slightly different results. This means we’ll have fairly noticeable denoiser artifacts in our animation as Optix reacts differently to the slight variance of our background pixels. 
 Optix actually offers a solution for this, with temporal rendering. We can include the previous frame’s denoised result as context for our current frame! Unfortunately, I just couldn’t get this element of the denoiser to work. I would pass in the data, and the final denoised result would fail, outputting a black screen. Definitely something to return to in the future. Still, the denoise functionality that I achieved here is worth using, and helped me render many of these animations in under 30 minutes.
@@ -90,11 +93,14 @@ Environment map was a fairly easy feature to add, although its usage is pretty l
 
 In cases like this, the underlying color of the object is so greatly affected that even denoising can’t save the render.
 
+<img width="500" height="500" alt="image" src="https://github.com/user-attachments/assets/2b54e2a4-c17e-4745-b7e1-46f47ae229b7" /> <img width="500" height="500" alt="image" src="https://github.com/user-attachments/assets/12430c3e-9e37-44b8-8a14-346c6e52a798" />
 
 
 This could be solved by including Multiple Importance Sampling in my render pipeline, or perhaps a gaussian blur of the sampled texture to normalize its colors. Definitely something to look into in the future.
 
 
 ## Closing Thoughts
+
+https://github.com/user-attachments/assets/3c6d83f8-1cbc-442b-9911-7d2f419df868
 
 Considering the timeline of ~two weeks of development, I’m happy with the results here. The night I completed my first render, the dancer on the lake, I must have stayed up for an hour watching and rewatching the video. The whole experience was pretty damn cool. That doesn’t mean the work’s done, though. There were so many moments that came up while writing this readme that I thought of features that would greatly improve the work, things I could accomplish in just a few days. I’m excited to return to path tracing soon. I’ll leave you with some funny bloopers from my trials and tribulations in development. 
