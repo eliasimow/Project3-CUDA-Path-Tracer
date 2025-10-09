@@ -51,7 +51,7 @@ And here’s the same for stream compaction:
 
 So, the reason for our poor performance is indeed the thrust overhead. At 41.9% of total kernel execution time, our Thrust execution overhead is massive. Anecdotally, I haven’t seen this result recreated in other students’ work. I’d like to explore this more in the future, and determine whether this is a hardware difference or if my thrust partition has gone awry in some way I can’t see. 
 
-## Features ~~~
+## Features
 
 ![output](https://github.com/user-attachments/assets/6a045281-857b-428e-ada0-db93626ef649)
 
@@ -104,3 +104,32 @@ This could be solved by including Multiple Importance Sampling in my render pipe
 https://github.com/user-attachments/assets/3c6d83f8-1cbc-442b-9911-7d2f419df868
 
 Considering the timeline of ~two weeks of development, I’m happy with the results here. The night I completed my first render, the dancer on the lake, I must have stayed up for an hour watching and rewatching the video. The whole experience was pretty damn cool. That doesn’t mean the work’s done, though. There were so many moments that came up while writing this readme that I thought of features that would greatly improve the work, things I could accomplish in just a few days. I’m excited to return to path tracing soon. I’ll leave you with some funny bloopers from my trials and tribulations in development. 
+
+## Bloopers
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/23411df6-409a-4991-bd8c-498f65ff263b" alt="Label describing the image]" width="500"/>
+  <br>
+  <em>Perfect lighting, no notes.</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/96d3b516-7485-4bdb-94ff-a5f02b616284" alt="Label describing the image]" width="500"/>
+  <br>
+  <em>First skinning attempt. A dancer, can't you tell?</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f20a1e3b-5ce4-4733-8759-19d01f98a010" alt="Label describing the image]" width="500"/>
+  <br>
+  <em>Her normals are all messed up, but I still liked this look. Maybe I should have rendered her as glass instead of black?</em>
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/6e25f32b-deb9-4091-9572-c35660aab41f" alt="Label describing the image]" width="500"/>
+  <br>
+  <em>Facial animation. A bit too ambitious for a final render :-) </em>
+</p>
+
+
+
