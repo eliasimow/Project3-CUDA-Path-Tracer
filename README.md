@@ -98,12 +98,24 @@ In cases like this, the underlying color of the object is so greatly affected th
 
 This could be solved by including Multiple Importance Sampling in my render pipeline, or perhaps a gaussian blur of the sampled texture to normalize its colors. Definitely something to look into in the future.
 
+## Credits
+
+BVH Traversal Guide: https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
+
+Optix Denoiser Documentation: https://raytracing-docs.nvidia.com/optix9/api/group__optix__host__api__denoiser.html
+
+GLTF Animation Guide : https://github.khronos.org/glTF-Tutorials/gltfTutorial/gltfTutorial_007_Animations.html
+
+GLTF Joint Guide: https://lisyarus.github.io/blog/posts/gltf-animation.html
+
+Models were free use from sketchfab and mixamo
 
 ## Closing Thoughts
 
 https://github.com/user-attachments/assets/3c6d83f8-1cbc-442b-9911-7d2f419df868
 
 Considering the timeline of ~two weeks of development, I’m happy with the results here. The night I completed my first render, the dancer on the lake, I must have stayed up for an hour watching and rewatching the video. The whole experience was pretty damn cool. That doesn’t mean the work’s done, though. There were so many moments that came up while writing this readme where I thought of features that would greatly improve the work, things I could accomplish in just a few days. I’m excited to return to path tracing soon. I’ll leave you with some funny bloopers from my trials and tribulations in development.  
+
 
 ## Bloopers
 
