@@ -103,7 +103,7 @@ This could be solved by including Multiple Importance Sampling in my render pipe
 
 https://github.com/user-attachments/assets/3c6d83f8-1cbc-442b-9911-7d2f419df868
 
-Considering the timeline of ~two weeks of development, I’m happy with the results here. The night I completed my first render, the dancer on the lake, I must have stayed up for an hour watching and rewatching the video. The whole experience was pretty damn cool. That doesn’t mean the work’s done, though. There were so many moments that came up while writing this readme that I thought of features that would greatly improve the work, things I could accomplish in just a few days. I’m excited to return to path tracing soon. I’ll leave you with some funny bloopers from my trials and tribulations in development. 
+Considering the timeline of ~two weeks of development, I’m happy with the results here. The night I completed my first render, the dancer on the lake, I must have stayed up for an hour watching and rewatching the video. The whole experience was pretty damn cool. That doesn’t mean the work’s done, though. There were so many moments that came up while writing this readme where I thought of features that would greatly improve the work, things I could accomplish in just a few days. I’m excited to return to path tracing soon. I’ll leave you with some funny bloopers from my trials and tribulations in development.  
 
 ## Bloopers
 
