@@ -244,6 +244,9 @@ FullGltfData Gltf::LoadFromFile(const std::string& path) {
 				const tinygltf::Material& mat = model.materials[prim.material];
 				const tinygltf::PbrMetallicRoughness& pbr = mat.pbrMetallicRoughness;
 				baseColorTextIndex = pbr.baseColorTexture.index;
+				if (baseColorTextIndex == -1) {
+					baseColorTextIndex = mat.emissiveTexture.index;
+				}
 			}
 
 			// Positions (required for rendering)

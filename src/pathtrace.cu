@@ -251,9 +251,33 @@ void pathtraceInit(Scene* scene, bool ignoreGltfTextures)
 	checkCUDAError("pathtraceInit");
 }
 
-void pathtraceFree(bool ignoreGltfTextues)
-{
-	cudaFree(dev_image);  // no-op if dev_image is null
+void safeCudaDestroyTexture(cudaTextureObject_t tex) {
+	if (tex) {
+		cudaError_t err = cudaDestroyTextureObject(tex);
+		if (err != cudaSuccess && err != cudaErrorInvalidValue) {
+			fprintf(stderr, "cudaDestroyTextureObject error: %s\n", cudaGetErrorString(err));
+		}
+	}
+}
+
+void safeCudaDestroyArray(cudaArray_t tex) {
+	if (tex) {
+		cudaError_t err = cudaFreeArray(tex);
+		if (err != cudaSuccess && err != cudaErrorInvalidValue) {
+			fprintf(stderr, "cudaDestroyTextureObject error: %s\n", cudaGetErrorString(err));
+		}
+	}
+}
+
+void pathtraceFree(bool ignoreGltfTextures) {
+	cudaDeviceSynchronize();
+	cudaError_t syncErr = cudaGetLastError();
+	if (syncErr != cudaSuccess) {
+		fprintf(stderr, "Pre-free sync error: %s\n", cudaGetErrorString(syncErr));
+	}
+
+	// ---- Device buffers ----
+	cudaFree(dev_image);
 	cudaFree(dev_paths);
 	cudaFree(dev_geoms);
 	cudaFree(dev_materials);
@@ -265,32 +289,27 @@ void pathtraceFree(bool ignoreGltfTextues)
 	cudaFree(dev_vertData);
 	cudaFree(dev_BVHNodes);
 
-	if (!ignoreGltfTextues) {
+	// ---- Textures ----
+	if (!ignoreGltfTextures) {
 		for (auto texObj : hostTextures) {
-			cudaDestroyTextureObject(texObj);
+			safeCudaDestroyTexture(texObj);
 		}
 
 		cudaFree(dev_textures);
 
 		for (auto cuArray : cudaArrays) {
-			if (cuArray != nullptr) {
-				cudaFreeArray(cuArray);
-			}
+			safeCudaDestroyArray(cuArray);
 		}
+		safeCudaDestroyTexture(dev_EnvironmentTexture);
+		safeCudaDestroyArray(dev_environmentMap);
+	}
 
-		checkCUDAError("pathtraceFree");
-
-		cudaDestroyTextureObject(dev_EnvironmentTexture);
-
-		checkCUDAError("pathtraceFree");
-
-		if (dev_environmentMap != nullptr)
-			cudaFreeArray(dev_environmentMap);
-
-		checkCUDAError("pathtraceFree");
+	cudaDeviceSynchronize();
+	cudaError_t finalErr = cudaGetLastError();
+	if (finalErr != cudaSuccess) {
+		fprintf(stderr, "Final cleanup error: %s\n", cudaGetErrorString(finalErr));
 	}
 }
-
 /**
 * Generate PathSegments with rays from the camera through the screen into the
 * scene, which is the first bounce of rays.

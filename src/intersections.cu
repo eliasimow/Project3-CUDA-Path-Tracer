@@ -168,16 +168,15 @@ __device__ float triangleIntersectionTest(
 			col1.z * w + col2.z * u + col3.z * v
 		);
 	}
+	else {
+		color = glm::vec3(1.f, 1.f, 1.f);
+	}
 
 
 
 	normal = glm::normalize(w * n1 + u * n2 + v * n3);
 
 	outside = glm::dot(normal, r.direction) < FLT_EPSILON;
-
-	if (!outside) {
-		normal = glm::vec3(1, 0, 0);
-	}
 
 	return t;
 }

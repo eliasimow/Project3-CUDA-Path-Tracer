@@ -221,8 +221,8 @@ void Scene::BufferMesh(std::vector<Mesh>& meshes, bool flipNormals) {
 		for (int i = 0; i < m.positions.size(); ++i) {
 			glm::vec4 transformedPosition = gltfFrame * glm::vec4(m.positions[i].x, m.positions[i].y, m.positions[i].z, 1);
 			glm::vec3 position = glm::vec3(transformedPosition.x, transformedPosition.y, transformedPosition.z);
-			glm::vec3 normal = normalMatrix * (flipNormals ? m.normals[i] * -1.f : m.normals[i]); // inverseTranspMat* glm::vec4(m.normals[i], 0.0f);
-			vertexData.push_back(VertexData(position, glm::vec3(normal.x, normal.y, normal.z), m.texcoords0[i]));
+			glm::vec3 normal = glm::normalize(normalMatrix * (flipNormals ? m.normals[i] * -1.f : m.normals[i])); // inverseTranspMat* glm::vec4(m.normals[i], 0.0f);
+			vertexData.push_back(VertexData(position, glm::vec3(normal.x, normal.y, normal.z), m.texcoords0.size() > 0 ? m.texcoords0[i] : glm::vec2(-1.f, -1.f)));
 		}
 
 		for (int i = 0; i < m.indices.size() - 2; i += 3) {

@@ -20,7 +20,7 @@ __host__ __device__ void diffuse(PathSegment& path, const ShadeableIntersection&
 	path.ray.origin = newOrigin;
 	path.ray.direction = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
 	float lightTerm = glm::dot(intersection.surfaceNormal, path.ray.direction);
-	path.color *= (intersection.textureColor * materialColor * lightTerm);
+	path.color = (path.color * (intersection.textureColor * materialColor * lightTerm) + (intersection.textureColor * materialColor * lightTerm)) / 2.f;
 
 	if (glm::dot(path.ray.direction, intersection.surfaceNormal) < 0) {
 		path.ray.direction = path.ray.direction * -1.f;
@@ -113,7 +113,7 @@ __device__ void environment(PathSegment& path, int iter, int idx, int depth, con
 		path.color = sampleEnvRadiance(environmentTexture, path.ray.direction);
 	}
 	else {
-		path.color *= 0.2f; // sampleEnvRadiance(environmentTexture, path.ray.direction) * .8f;
+		path.color *= sampleEnvRadiance(environmentTexture, path.ray.direction);
 	}
 	path.remainingBounces = 0;
 }
